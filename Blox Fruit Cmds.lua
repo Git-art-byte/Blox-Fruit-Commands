@@ -5,137 +5,150 @@ local CommF_ = ReplicatedStorage.Remotes.CommF_
 local LocalPlayer = Players.LocalPlayer
 local PlayerChatted = LocalPlayer.Chatted
 
--- Weapon items for /g command
+-- ALL WEAPONS (Swords + Guns) - WITH EXACT NAMES
 local WeaponItems = {
     -- Swords
-    ["dark blade"] = {"Swords"},
-    ["saber"] = {"Swords"},
-    ["shisui"] = {"Swords"},
-    ["saddi"] = {"Swords"},
-    ["wando"] = {"Swords"},
-    ["yama"] = {"Swords"},
-    ["buddy sword"] = {"Swords"},
-    ["canvander"] = {"Swords"},
-    ["spikey trident"] = {"Swords"},
-    ["hallow scythe"] = {"Swords"},
-    ["dragon trident"] = {"Swords"},
-    ["pipe"] = {"Swords"},
-    ["dual headed blade"] = {"Swords"},
-    ["triple katana"] = {"Swords"},
-    ["soul cane"] = {"Swords"},
-    ["koko"] = {"Swords"},
-    ["jitte"] = {"Swords"},
-    ["dual heated blade"] = {"Swords"},
-    ["gravity cane"] = {"Swords"},
-    ["cursed dual katana"] = {"Swords"},
-    ["cdk"] = {"Swords"},
-    ["true triple katana"] = {"Swords"},
-    ["ttk"] = {"Swords"},
-    ["tushita"] = {"Swords"},
-    ["yoru"] = {"Swords"},
-    ["midnight blade"] = {"Swords"},
-    ["rengoku"] = {"Swords"},
-    
+    ["Dark Blade"] = "Swords",
+    ["Cursed Dual Katana"] = "Swords",
+    ["True Triple Katana"] = "Swords",
+    ["Yama"] = "Swords",
+    ["Tushita"] = "Swords",
+    ["Shark Anchor"] = "Swords",
+    ["Hallow Scythe"] = "Swords",
+    ["Rengoku"] = "Swords",
+    ["Saber"] = "Swords",
+    ["Pole"] = "Swords",
+    ["Dual-Headed Blade"] = "Swords",
+    ["Trident"] = "Swords",
+    ["Pipe"] = "Swords",
+    ["Dual Katana"] = "Swords",
+    ["Triple Katana"] = "Swords",
+    ["Iron Mace"] = "Swords",
+    ["Double Flintlock"] = "Swords",
+    ["Bisento"] = "Swords",
+    ["Soul Cane"] = "Swords",
+    ["Jitte"] = "Swords",
+    ["Hueco Mundo"] = "Swords",
+    ["Hollow Blade"] = "Swords",
+    ["Yoru"] = "Swords",
+    ["Shisui"] = "Swords",
+    ["Saddi"] = "Swords",
+    ["Wando"] = "Swords",
+    ["Buddy Sword"] = "Swords",
+    ["Canvander"] = "Swords",
+    ["Spikey Trident"] = "Swords",
+    ["Dragon Trident"] = "Swords",
+    ["Gravity Cane"] = "Swords",
+    ["Koko"] = "Swords",
+    ["Midnight Blade"] = "Swords",
+    ["Longsword"] = "Swords",
+    ["Fox Lamp"] = "Swords",
+    ["God's Chalice"] = "Swords",
+    ["Saw"] = "Swords",
+    ["Gyffin's Claw"] = "Swords",
+    ["Cursed Kazashi"] = "Swords",
+    ["Neo Triple Katana"] = "Swords",
+    ["Magnetized Triple Katana"] = "Swords",
+    ["Magnetized Blades"] = "Swords",
+    ["Sunken Sword"] = "Swords",
+    ["Sunken Essence"] = "Swords",
+    ["Mythril Sword"] = "Swords",
+    ["Mythril Dagger"] = "Swords",
+    ["Mythril Hammer"] = "Swords",
+    ["Obsidian Sword"] = "Swords",
+    ["Obsidian Dagger"] = "Swords",
+    ["Obsidian Hammer"] = "Swords",
+    ["Eternal Nightstick"] = "Swords",
+    ["Heaven's Censer"] = "Swords",
+    ["Hell's Incinerator"] = "Swords",
+    ["Zweihander"] = "Swords",
+
     -- Guns
-    ["kabucha"] = {"Guns"},
-    ["skull guitar"] = {"Guns"},
-    ["acidum rifle"] = {"Guns"},
-    ["bizarre rifle"] = {"Guns"},
-    ["slingshot"] = {"Guns"},
-    ["musket"] = {"Guns"},
-    ["flintlock"] = {"Guns"},
-    ["refined flintlock"] = {"Guns"},
-    ["cannon"] = {"Guns"},
-    ["refined slingshot"] = {"Guns"},
-    ["bazooka"] = {"Guns"},
-    ["serpent bow"] = {"Guns"},
+    ["Skull Guitar"] = "Guns", -- FIXED: Changed from "Soul Guitar" to "Skull Guitar"
+    ["Kabucha"] = "Guns",
+    ["Acidum Rifle"] = "Guns",
+    ["Bizarre Rifle"] = "Guns",
+    ["Serpent Bow"] = "Guns",
+    ["Slingshot"] = "Guns",
+    ["Musket"] = "Guns",
+    ["Flintlock"] = "Guns",
+    ["Refined Flintlock"] = "Guns",
+    ["Cannon"] = "Guns",
+    ["Refined Slingshot"] = "Guns",
+    ["Bazooka"] = "Guns",
+    ["Ice Quake"] = "Guns",
+    ["Scarlet Barrage"] = "Guns",
+    ["Ghost Rifle"] = "Guns",
+    ["Spectral Blaster"] = "Guns",
+    ["Necro Pistol"] = "Guns",
+    ["Phantom Shooter"] = "Guns",
+    ["Demon Blaster"] = "Guns",
+    ["Angel's Fury"] = "Guns",
+    ["Dragon's Breath"] = "Guns",
 }
 
--- Fighting styles for /f command
+-- ALL FIGHTING STYLES
 local FightingStyles = {
-    ["electro"] = "BuyElectro",
-    ["electric"] = "BuyElectro",
-    ["dragon breath"] = "BuyDragonBreath",
-    ["dragonbreath"] = "BuyDragonBreath",
-    ["dark step"] = "BuyBlackLeg",
-    ["black leg"] = "BuyBlackLeg",
-    ["water kung fu"] = "BuyWaterKungfu",
-    ["waterkungfu"] = "BuyWaterKungfu",
-    ["superhuman"] = "BuySuperhuman",
-    ["death step"] = "BuyDeathStep",
-    ["deathstep"] = "BuyDeathStep",
-    ["sharkman karate"] = "BuySharkmanKarate",
-    ["sharkmankarate"] = "BuySharkmanKarate",
-    ["electric claw"] = "BuyElectricClaw",
-    ["electricclaw"] = "BuyElectricClaw",
-    ["dragon talon"] = "BuyDragonTalon",
-    ["dragontalon"] = "BuyDragonTalon",
-    ["godhuman"] = "BuyGodhuman",
-    ["sanguine art"] = "BuySanguineArt",
-    ["sanguineart"] = "BuySanguineArt",
-    ["blood style"] = "BuySanguineArt",
-    ["bloodstyle"] = "BuySanguineArt",
-    ["combat"] = "BuyCombat",
-    ["fishman karate"] = "BuyFishmanKarate",
-    ["fishmankarate"] = "BuyFishmanKarate",
-    ["martial arts"] = "BuyMartialArts",
-    ["martialarts"] = "BuyMartialArts"
+    ["Godhuman"] = "BuyGodhuman",
+    ["Superhuman"] = "BuySuperhuman",
+    ["Death Step"] = "BuyDeathStep",
+    ["Electric Claw"] = "BuyElectricClaw",
+    ["Dragon Talon"] = "BuyDragonTalon",
+    ["Sharkman Karate"] = "BuySharkmanKarate",
+    ["Electric"] = "BuyElectro",
+    ["Dragon Breath"] = "BuyDragonBreath",
+    ["Dark Step"] = "BuyBlackLeg",
+    ["Water Kung Fu"] = "BuyWaterKungfu",
+    ["Sanguine Art"] = "BuySanguineArt",
+    ["Blood Style"] = "BuySanguineArt",
+    ["Combat"] = "BuyCombat",
+    ["Fishman Karate"] = "BuyFishmanKarate",
+    ["Martial Arts"] = "BuyMartialArts",
+    ["Black Leg"] = "BuyBlackLeg",
+    ["Drunken Fist"] = "BuyDrunkenFist",
+    ["Cyborg Style"] = "BuyCyborg",
+    ["Android Technique"] = "BuyAndroid",
+    ["Vampire Brawl"] = "BuyVampire",
+    ["Werewolf Fury"] = "BuyWerewolf",
+    ["Phoenix Style"] = "BuyPhoenixStyle",
+    ["Dragon Style"] = "BuyDragonStyle",
+    ["Demon Art"] = "BuyDemonArt",
+    ["Angel Technique"] = "BuyAngelTechnique",
+    ["Gravity Fist"] = "BuyGravityFist",
+    ["Time Knuckle"] = "BuyTimeKnuckle",
+    ["Space Palm"] = "BuySpacePalm",
+    ["Venom Strike"] = "BuyVenomStrike",
+    ["Magma Punch"] = "BuyMagmaPunch",
+    ["Ice Fist"] = "BuyIceFist",
+    ["Lightning Hand"] = "BuyLightningHand",
+    ["Earth Shaker"] = "BuyEarthShaker",
+    ["Wind Cutter"] = "BuyWindCutter",
 }
 
--- Permanent fruits for /e command
-local PermanentFruits = {
-    ["leopard"] = "Leopard-Leopard",
-    ["leo"] = "Leopard-Leopard",
-    ["dragon"] = "Dragon-Dragon",
-    ["dough"] = "Dough-Dough",
-    ["dark"] = "Dark-Dark",
-    ["light"] = "Light-Light",
-    ["quake"] = "Quake-Quake",
-    ["rumble"] = "Rumble-Rumble",
-    ["buddha"] = "Buddha-Buddha",
-    ["shadow"] = "Shadow-Shadow",
-    ["blizzard"] = "Blizzard-Blizzard",
-    ["control"] = "Control-Control",
-    ["gravity"] = "Gravity-Gravity",
-    ["venom"] = "Venom-Venom",
-    ["spider"] = "Spider-Spider",
-    ["phoenix"] = "Phoenix-Phoenix",
-    ["ice"] = "Ice-Ice",
-    ["sand"] = "Sand-Sand",
-    ["flame"] = "Flame-Flame",
-    ["falcon"] = "Falcon-Falcon",
-    ["rubber"] = "Rubber-Rubber",
-    ["barrier"] = "Barrier-Barrier",
-    ["smoke"] = "Smoke-Smoke",
-    ["spin"] = "Spin-Spin",
-    ["chop"] = "Chop-Chop",
-    ["spring"] = "Spring-Spring",
-    ["bomb"] = "Bomb-Bomb",
-    ["kilogram"] = "Kilogram-Kilogram",
-    ["revive"] = "Revive-Revive",
-    ["diamond"] = "Diamond-Diamond",
-    ["love"] = "Love-Love",
-    ["magnet"] = "Magnet-Magnet",
-    ["door"] = "Door-Door",
-    ["human"] = "Human-Human",
-    ["ghost"] = "Ghost-Ghost",
-    ["bird: falcon"] = "Bird: Falcon-Bird: Falcon"
-}
+-- Function to find exact match (case-insensitive search, returns exact name)
+local function findExactMatch(table, searchName)
+    searchName = searchName:lower()
+    for itemName, value in pairs(table) do
+        if itemName:lower() == searchName then
+            return value, itemName
+        end
+    end
+    return nil, nil
+end
 
--- Function for weapons (/g command)
+-- Function to get weapon
 local function getWeapon(itemName)
-    local itemKey = itemName:lower()
+    local category, exactName = findExactMatch(WeaponItems, itemName)
     
-    if WeaponItems[itemKey] then
-        local category = WeaponItems[itemKey][1]
-        print("Loading weapon: " .. itemName .. " (" .. category .. ")")
+    if category then
+        print("Loading: " .. exactName .. " (" .. category .. ")")
         
         local success, result = pcall(function()
-            return CommF_:InvokeServer("LoadItem", itemName, {category})
+            return CommF_:InvokeServer("LoadItem", exactName, {category})
         end)
 
         if success then
-            print("✅ Weapon loaded! Return: " .. tostring(result))
+            print("✅ Success!")
         else
             print("❌ Error: " .. tostring(result))
         end
@@ -144,47 +157,24 @@ local function getWeapon(itemName)
     end
 end
 
--- Function for fighting styles (/f command)
+-- Function to get fighting style
 local function getFightingStyle(styleName)
-    local styleKey = styleName:lower()
+    local remoteCommand, exactName = findExactMatch(FightingStyles, styleName)
     
-    if FightingStyles[styleKey] then
-        local remoteCommand = FightingStyles[styleKey]
-        print("Getting fighting style: " .. styleName .. " -> " .. remoteCommand)
+    if remoteCommand then
+        print("Getting: " .. exactName .. " -> " .. remoteCommand)
         
         local success, result = pcall(function()
             return CommF_:InvokeServer(remoteCommand)
         end)
 
         if success then
-            print("✅ Style acquired! Return: " .. tostring(result))
+            print("✅ Success!")
         else
             print("❌ Error: " .. tostring(result))
         end
     else
         print("❌ Fighting style not found: " .. styleName)
-    end
-end
-
--- Function for permanent fruits (/e command)
-local function getPermanentFruit(fruitName)
-    local fruitKey = fruitName:lower()
-    
-    if PermanentFruits[fruitKey] then
-        local fruitCode = PermanentFruits[fruitKey]
-        print("Switching to permanent fruit: " .. fruitName .. " -> " .. fruitCode)
-        
-        local success, result = pcall(function()
-            return CommF_:InvokeServer("SwitchFruit", fruitCode)
-        end)
-
-        if success then
-            print("✅ Fruit switched! Return: " .. tostring(result))
-        else
-            print("❌ Error: " .. tostring(result))
-        end
-    else
-        print("❌ Permanent fruit not found: " .. fruitName)
     end
 end
 
@@ -199,22 +189,16 @@ PlayerChatted:Connect(function(message)
     elseif command:sub(1, 3) == "/f " then
         local styleName = message:sub(4)
         getFightingStyle(styleName)
-        
-    elseif command:sub(1, 3) == "/e " then
-        local fruitName = message:sub(4)
-        getPermanentFruit(fruitName)
     end
 end)
 
-print("Chat commands loaded!")
+print("✅ All weapons and fighting styles loaded!")
 print("WEAPONS: /g <weaponname>")
 print("FIGHTING STYLES: /f <stylename>")
-print("PERMANENT FRUITS: /e <fruitname>")
 print("Examples:")
-print("/g cdk")
-print("/g soul guitar")
-print("/f electric claw")
-print("/f superhuman")
-print("/e leopard")
-print("/e dough")
-print("/e dragon")
+print("/g Skull Guitar")  -- FIXED: Changed from Soul Guitar to Skull Guitar
+print("/g Cursed Dual Katana")
+print("/g Kabucha")
+print("/f Godhuman")
+print("/f Electric Claw")
+print("/f Death Step")
