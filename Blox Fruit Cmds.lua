@@ -193,10 +193,20 @@ PlayerChatted:Connect(function(msg)
         getWeapon(msg:sub(4))
     elseif m:sub(1,3) == "/f " then
         getFightingStyle(msg:sub(4))
-    elseif m:sub(1,3) == "/t " then
-        getTitle(msg:sub(4))
+    elseif m:sub(1,4) == "/tt " then
+        getTitle(msg:sub(5))
     elseif m:sub(1,3) == "/e " then
         equipFruit(msg:sub(4))
+    elseif m:sub(1,7) == "/pirate" then
+        local ok, res = pcall(function()
+            return CommF_:InvokeServer("SetTeam","Pirates")
+        end)
+        notify("Team", ok and "✅ Joined Pirates!" or "❌ "..tostring(res), 5)
+    elseif m:sub(1,6) == "/marine" then
+        local ok, res = pcall(function()
+            return CommF_:InvokeServer("SetTeam","Marines")
+        end)
+        notify("Team", ok and "✅ Joined Marines!" or "❌ "..tostring(res), 5)
     elseif m:sub(1,5) == "/sea1" then
         travelToSea("1")
     elseif m:sub(1,5) == "/sea2" then
@@ -204,7 +214,7 @@ PlayerChatted:Connect(function(msg)
     elseif m:sub(1,5) == "/sea3" then
         travelToSea("3")
     elseif m:sub(1,5) == "/help" then
-        notify("Help","Commands:\n/g <weapon>\n/f <style>\n/t <title>\n/e <fruit>\n/sea1 /sea2 /sea3",10)
+        notify("Help","Commands:\n/g <weapon>\n/f <style>\n/tt <title>\n/e <fruit>\n/Pirate\n/Marine\n/sea1 /sea2 /sea3",10)
     end
 end)
 
