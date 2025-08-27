@@ -73,7 +73,7 @@ local FruitMapping = {
     ["Pain"]="Pain-Pain", ["Blizzard"]="Blizzard-Blizzard", ["Gravity"]="Gravity-Gravity", ["Mammoth"]="Mammoth-Mammoth", 
     ["T-Rex"]="T-Rex-T-Rex", ["Dough"]="Dough-Dough", ["Shadow"]="Shadow-Shadow", ["Venom"]="Venom-Venom", 
     ["Control"]="Control-Control", ["Gas"]="Gas-Gas", ["Spirit"]="Spirit-Spirit", ["Leopard"]="Leopard-Leopard", 
-    ["Yeti"]="Yeti-Yeti", ["Kitsune"]="Kitsune-Kitsune", ["Dragon"]="Dragon-Dragon"
+    ["Yeti"]="Yeti-Yeti", ["Kitsune"]="Kitsune-Kitsune", ["Dragon"]="Dragon-Dragon", ["Buddha"]="Buddha-Buddha"
 }
 
 local Titles = {
@@ -157,7 +157,8 @@ local Titles = {
     ["Lucky"]="Lucky", ["Fortunate"]="Fortunate", ["Blessed"]="Blessed", ["Cursed"]="Cursed",
     ["Unlucky"]="Unlucky", ["Doomed"]="Doomed", ["Damned"]="Damned", ["Forsaken"]="Forsaken",
     ["Risen"]="Risen", ["Awakened"]="Awakened", ["Enlightened"]="Enlightened", ["Transformed"]="Transformed",
-    ["Evolved"]="Evolved", ["Ascended"]="Ascended", ["Divine Being"]="Divine Being", ["God"]="God"
+    ["Evolved"]="Evolved", ["Ascended"]="Ascended", ["Divine Being"]="Divine Being", ["God"]="God",
+    ["Slayer of God"]="Slayer of God"
 }
 
 local TravelCommands = {["1"]="TravelMain", ["2"]="TravelDressrosa", ["3"]="TravelZou"}
@@ -225,8 +226,14 @@ local function equipFruit(name)
     local fruitName, exactName = findExactMatch(FruitMapping, name)
     if fruitName then
         local success, result = pcall(function()
-            return CommF_:InvokeServer("SwitchFruit", fruitName)
+            return CommF_:InvokeServer("StoreItem", fruitName)
         end)
+        if not success then
+            -- Try the SwitchFruit method if StoreItem fails
+            success, result = pcall(function()
+                return CommF_:InvokeServer("SwitchFruit", fruitName)
+            end)
+        end
         notify("Fruit", success and "✅ "..exactName.." equipped" or "❌ "..tostring(result),5)
     else
         notify("Fruit","❌ Not found: "..name,5)
@@ -237,7 +244,21 @@ local function equipTitle(name)
     local titleValue, exactName = findTitleMatch(name)
     if titleValue then
         local success, result = pcall(function()
-            return CommF_:InvokeServer("ActivateTitle", titleValue)
+            -- Try different title activation methods
+            success, result = pcall(function()
+                return CommF_:InvokeServer("SetTitle", titleValue)
+            end)
+            if not success then
+                success, result = pcall(function()
+                    return CommF_:InvokeServer("ActivateTitle", titleValue)
+                end)
+            end
+            if not success then
+                success, result = pcall(function()
+                    return CommF_:InvokeServer("EquipTitle", titleValue)
+                end)
+            end
+            return success, result
         end)
         notify("Title", success and "✅ "..exactName.." activated" or "❌ "..tostring(result),5)
     else
@@ -248,7 +269,21 @@ end
 local function setTeam(teamName)
     local team = teamName:lower():find("pirate") and "Pirates" or "Marines"
     local success, result = pcall(function()
-        return CommF_:InvokeServer("SetTeam", team)
+        -- Try different team selection methods
+        success, result = pcall(function()
+            return CommF_:InvokeServer("SetTeam", team)
+        end)
+        if not success then
+            success, result = pcall(function()
+                return CommF_:InvokeServer("Team", team)
+            end)
+        end
+        if not success then
+            success, result = pcall(function()
+                return CommF_:InvokeServer("JoinTeam", team)
+            end)
+        end
+        return success, result
     end)
     notify("Team", success and "✅ Joined "..team or "❌ "..tostring(result),5)
 end
