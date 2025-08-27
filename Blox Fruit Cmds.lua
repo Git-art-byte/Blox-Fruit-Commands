@@ -225,7 +225,7 @@ local function equipFruit(name)
     local fruitName, exactName = findExactMatch(FruitMapping, name)
     if fruitName then
         local success, result = pcall(function()
-            return CommF_:InvokeServer("StoreItem", fruitName)
+            return CommF_:InvokeServer("SwitchFruit", fruitName)
         end)
         notify("Fruit", success and "✅ "..exactName.." equipped" or "❌ "..tostring(result),5)
     else
@@ -246,10 +246,11 @@ local function equipTitle(name)
 end
 
 local function setTeam(teamName)
+    local team = teamName:lower():find("pirate") and "Pirates" or "Marines"
     local success, result = pcall(function()
-        return CommF_:InvokeServer("SetTeam", teamName)
+        return CommF_:InvokeServer("SetTeam", team)
     end)
-    notify("Team", success and "✅ Joined "..teamName or "❌ "..tostring(result),5)
+    notify("Team", success and "✅ Joined "..team or "❌ "..tostring(result),5)
 end
 
 -- ================================
