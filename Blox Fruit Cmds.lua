@@ -66,49 +66,30 @@ local FightingStyles = {
 }
 
 -- ================================
--- Titles (220 Titles)
+-- Titles
 -- ================================
 local Titles = {
-    ["The Glorious"]="The Glorious", ["Slayer of God"]="Slayer of God", ["Pirate Hunter"]="Pirate Hunter",
-    ["Beast Slayer"]="Beast Slayer", ["Dragon Slayer"]="Dragon Slayer", ["The Chosen"]="The Chosen",
-    ["Conqueror"]="Conqueror", ["Demon"]="Demon", ["Angel"]="Angel", ["Godspeed"]="Godspeed",
-    ["The Mighty"]="The Mighty", ["The Unleashed"]="The Unleashed", ["Unmatched Speed"]="Unmatched Speed",
-    ["Sea Monster"]="Sea Monster", ["Sacred Warrior"]="Sacred Warrior", ["The Ghoul"]="The Ghoul",
-    ["The Cyborg"]="The Cyborg", ["Elder Wyrm"]="Elder Wyrm", ["Full Power"]="Full Power",
-    ["Warrior of the Sea"]="Warrior of the Sea", ["Perfect Being"]="Perfect Being", ["Hell Hound"]="Hell Hound",
-    ["War Machine"]="War Machine", ["Berserker"]="Berserker", ["Ancient Flame"]="Ancient Flame",
-    ["Thunderbolt"]="Thunderbolt", ["Leviathan"]="Leviathan", ["His Majesty"]="His Majesty",
-    ["Nightwalker"]="Nightwalker", ["Genesis"]="Genesis", ["Bounty Hunter"]="Bounty Hunter",
-    ["Warlord of the Sea"]="Warlord of the Sea", ["Emperor of the Sea"]="Emperor of the Sea",
-    ["Empress of the Sea"]="Empress of the Sea", ["Admiral"]="Admiral", ["Fleet Admiral"]="Fleet Admiral",
-    ["Enlightened One"]="Enlightened One", ["Awakened One"]="Awakened One", ["Over Heaven"]="Over Heaven",
-    ["Over Hell"]="Over Hell", ["Flame Fist"]="Flame Fist", ["The Ice Queen"]="The Ice Queen",
-    ["The Ice King"]="The Ice King", ["The Strongest One"]="The Strongest One", ["The First Light"]="The First Light",
-    ["Dark Lord"]="Dark Lord", ["The Spider"]="The Spider", ["Thunder God"]="Thunder God",
-    ["The Red Dog"]="The Red Dog", ["Colossal God"]="Colossal God", ["Desert Prince"]="Desert Prince",
-    ["The Phoenix"]="The Phoenix", ["Bread Chaser"]="Bread Chaser", ["Innovator"]="Innovator",
-    ["Pygglor, Devourer of Worlds"]="Pygglor, Devourer of Worlds", ["Wen Lord Toad"]="Wen Lord Toad",
-    ["Big News"]="Big News", ["Youtuber"]="Youtuber", ["Ace Squad"]="Ace Squad",
-    ["Officially a Noob"]="Officially a Noob", ["Water Gang"]="Water Gang", ["Don Axiore Familia"]="Don Axiore Familia",
-    ["Mafia Gang"]="Mafia Gang", ["Heorua Family"]="Heorua Family", ["Magic Slayer"]="Magic Slayer",
-    ["Kitt Katt"]="Kitt Katt", ["Team JC"]="Team JC", ["El Combo God"]="El Combo God",
-    ["Nakama Forever"]="Nakama Forever", ["Endless Fantasy"]="Endless Fantasy", ["El Krazy Editor"]="El Krazy Editor",
-    ["rip_family"]="rip_family", ["red_legion"]="red_legion", ["Justice Seeker"]="Justice Seeker",
-    ["Empty Vessel"]="Empty Vessel", ["The Unlucky"]="The Unlucky", ["The Vanquished"]="The Vanquished",
-    ["Fallen Hero"]="Fallen Hero", ["Iron Man"]="Iron Man", ["Ultra Instinct"]="Ultra Instinct",
-    ["Mad Scientist"]="Mad Scientist", ["The Professor"]="The Professor", ["The Shadow"]="The Shadow",
-    ["The Vampire"]="The Vampire", ["Dracula"]="Dracula", ["The Grandfather"]="The Grandfather",
-    ["Jack of All Trades"]="Jack of All Trades", ["The Undefeated One"]="The Undefeated One",
-    ["Immortal Being"]="Immortal Being", ["The Mad King"]="The Mad King", ["The Mastermind"]="The Mastermind",
-    ["The Dog"]="The Dog", ["Ship Destroyer"]="Ship Destroyer", ["The Explorer"]="The Explorer",
-    ["The Adventurer"]="The Adventurer", ["The Mercenary"]="The Mercenary", ["The Viking"]="The Viking",
-    ["The Pioneer"]="The Pioneer", ["Unbreakable Will"]="Unbreakable Will", ["Fist of Death"]="Fist of Death",
-    ["God Blade"]="God Blade", ["King Sniper"]="King Sniper", ["Beyond the Sea"]="Beyond the Sea",
-    ["Broken Heart"]="Broken Heart", ["The Conqueror"]="The Conqueror", ["Last Hope"]="Last Hope",
-    ["The Supersonic"]="The Supersonic", ["The Flash"]="The Flash", ["The Champion"]="The Champion",
-    ["Tide Warrior"]="Tide Warrior", ["The Toxic"]="The Toxic", ["Blessed One"]="Blessed One",
-    ["Equal to the Heavens"]="Equal to the Heavens", ["The Rich"]="The Rich", ["Unlimited Money"]="Unlimited Money",
-    ["The Richest in the World"]="The Richest in the World"
+    ["Unmatched Speed"]="Unmatched Speed",
+    ["The Glorious"]="The Glorious",
+    ["Slayer of God"]="Slayer of God"
+    -- add more titles here
+}
+
+-- ================================
+-- Permanent Fruit Friendly Names
+-- ================================
+local FruitMapping = {
+    ["Rubber"] = "Gomu-Gomu",
+    ["Flame"] = "Mera-Mera",
+    ["Ice"] = "Hie-Hie",
+    ["Light"] = "Pika-Pika",
+    ["Dark"] = "Yami-Yami",
+    ["Buddha"] = "Buddha-Buddha",
+    ["Sand"] = "Suna-Suna",
+    ["String"] = "Ito-Ito",
+    ["Chop"] = "Bara-Bara",
+    ["Spike"] = "Toge-Toge"
+    -- add more friendly names here
 }
 
 -- ================================
@@ -117,13 +98,14 @@ local Titles = {
 local function findExactMatch(tbl, searchName)
     searchName = searchName:lower()
     for itemName, value in pairs(tbl) do
-        if itemName:lower() == searchName then
+        if itemName:lower():find(searchName) then
             return value, itemName
         end
     end
     return nil, nil
 end
 
+-- Weapon
 local function getWeapon(name)
     local category, exactName = findExactMatch(WeaponItems, name)
     if category then
@@ -137,6 +119,7 @@ local function getWeapon(name)
     end
 end
 
+-- Fighting Style
 local function getFightingStyle(name)
     local command, exactName = findExactMatch(FightingStyles, name)
     if command then
@@ -150,9 +133,14 @@ local function getFightingStyle(name)
     end
 end
 
+-- Title
 local function getTitle(name)
-    local _, exactName = findExactMatch(Titles, name)
-    if exactName then
+    if not name or name == "" then
+        notify("Title", "Usage: /tt <title name>", 5)
+        return
+    end
+    local match, exactName = findExactMatch(Titles, name)
+    if match then
         local ok, res = pcall(function()
             return CommF_:InvokeServer("activateTitle", exactName)
         end)
@@ -162,17 +150,24 @@ local function getTitle(name)
     end
 end
 
+-- Permanent Fruit
 local function equipFruit(name)
     if not name or name == "" then
         notify("Fruit", "Usage: /e <fruit name>", 5)
         return
     end
-    local ok, res = pcall(function()
-        return CommF_:InvokeServer("EquipFruit", name)
-    end)
-    notify("Fruit", ok and "✅ "..name.." equipped!" or "❌ "..tostring(res), 5)
+    local fruitName = FruitMapping[name]
+    if fruitName then
+        local ok, res = pcall(function()
+            return CommF_:InvokeServer("SwitchFruit", fruitName)
+        end)
+        notify("Fruit", ok and "✅ "..fruitName.." equipped!" or "❌ "..tostring(res), 5)
+    else
+        notify("Fruit", "❌ Fruit not found: "..name, 5)
+    end
 end
 
+-- Travel
 local function travelToSea(num)
     local commands = {["1"]="TravelMain", ["2"]="TravelDressrosa", ["3"]="TravelZou"}
     local cmd = commands[num]
