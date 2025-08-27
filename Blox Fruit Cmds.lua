@@ -1,15 +1,28 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local CommF_ = ReplicatedStorage.Remotes.CommF_
+local StarterGui = game:GetService("StarterGui")
 
+local CommF_ = ReplicatedStorage.Remotes.CommF_
 local LocalPlayer = Players.LocalPlayer
 local PlayerChatted = LocalPlayer.Chatted
 
 -- ================================
--- ALL WEAPONS (Swords + Guns) - EXACT NAMES
+-- NOTIFICATION FUNCTION
+-- ================================
+local function notify(title, text, duration)
+    pcall(function()
+        StarterGui:SetCore("SendNotification", {
+            Title = title,
+            Text = text,
+            Duration = duration or 5
+        })
+    end)
+end
+
+-- ================================
+-- WEAPONS
 -- ================================
 local WeaponItems = {
-    -- Swords
     ["Dark Blade"] = "Swords",
     ["Cursed Dual Katana"] = "Swords",
     ["True Triple Katana"] = "Swords",
@@ -90,7 +103,7 @@ local WeaponItems = {
 }
 
 -- ================================
--- ALL FIGHTING STYLES - EXACT NAMES
+-- FIGHTING STYLES
 -- ================================
 local FightingStyles = {
     ["Godhuman"] = "BuyGodhuman",
@@ -145,26 +158,26 @@ end
 local function getWeapon(itemName)
     local category, exactName = findExactMatch(WeaponItems, itemName)
     if category then
-        print("Loading: " .. exactName .. " (" .. category .. ")")
+        notify("Weapon", "Loading " .. exactName .. " (" .. category .. ")", 5)
         local ok, result = pcall(function()
             return CommF_:InvokeServer("LoadItem", exactName, { category })
         end)
-        print(ok and "✅ Success!" or "❌ Error: " .. tostring(result))
+        notify("Weapon", ok and "✅ Success!" or "❌ Error: " .. tostring(result), 5)
     else
-        print("❌ Weapon not found: " .. itemName)
+        notify("Weapon", "❌ Not found: " .. itemName, 5)
     end
 end
 
 local function getFightingStyle(styleName)
     local remoteCommand, exactName = findExactMatch(FightingStyles, styleName)
     if remoteCommand then
-        print("Getting: " .. exactName .. " -> " .. remoteCommand)
+        notify("Fighting Style", "Getting " .. exactName, 5)
         local ok, result = pcall(function()
             return CommF_:InvokeServer(remoteCommand)
         end)
-        print(ok and "✅ Success!" or "❌ Error: " .. tostring(result))
+        notify("Fighting Style", ok and "✅ Success!" or "❌ Error: " .. tostring(result), 5)
     else
-        print("❌ Fighting style not found: " .. styleName)
+        notify("Fighting Style", "❌ Not found: " .. styleName, 5)
     end
 end
 
@@ -176,42 +189,54 @@ local function travelToSea(seaNumber)
     }
     local command = travelCommands[seaNumber]
     if command then
-        print("Traveling to Sea " .. seaNumber .. " -> " .. command)
+        notify("Travel", "Going to Sea " .. seaNumber, 5)
         local ok, result = pcall(function()
             return CommF_:InvokeServer(command)
         end)
-        print(ok and "✅ Travel successful!" or "❌ Travel error: " .. tostring(result))
+        notify("Travel", ok and "✅ Success!" or "❌ Error: " .. tostring(result), 5)
     else
-        print("❌ Invalid sea number. Use /sea1, /sea2, or /sea3")
+        notify("Travel", "❌ Invalid sea number", 5)
     end
+end
+
+local function activateTitle(titleName)
+    if not titleName or titleName == "" then
+        notify("Title", "Usage: /t <title name>", 5)
+        return
+    end
+    notify("Title", "Activating " .. titleName, 5)
+    local ok, result = pcall(function()
+        return CommF_:InvokeServer("activateTitle", titleName)
+    end)
+    notify("Title", ok and "✅ Activated!" or "❌ Error: " .. tostring(result), 5)
 end
 
 -- ================================
 -- COMMANDS TABLE
--- (keys include the space for arg-taking commands)
 -- ================================
 local Commands = {
-    ["/g "] = function(original, lower)
-        local itemName = original:sub(#"/g " + 1)
-        if itemName == "" then
-            print("Usage: /g <weapon name>")
-            return
-        end
+    ["/g "] = function(original)
+        local itemName = original:sub(#"/g " + 1):gsub("^%s+", "")
         getWeapon(itemName)
     end,
 
-    ["/f "] = function(original, lower)
-        local styleName = original:sub(#"/f " + 1)
-        if styleName == "" then
-            print("Usage: /f <style name>")
-            return
-        end
+    ["/f "] = function(original)
+        local styleName = original:sub(#"/f " + 1):gsub("^%s+", "")
         getFightingStyle(styleName)
+    end,
+
+    ["/t "] = function(original)
+        local titleName = original:sub(#"/t " + 1):gsub("^%s+", "")
+        activateTitle(titleName)
     end,
 
     ["/sea1"] = function() travelToSea("1") end,
     ["/sea2"] = function() travelToSea("2") end,
     ["/sea3"] = function() travelToSea("3") end,
+
+    ["/help"] = function()
+        notify("HELP", "Commands:\n/g <weapon>\n/f <style>\n/t <title>\n/sea1 /sea2 /sea3", 10)
+    end,
 }
 
 -- ================================
@@ -220,23 +245,11 @@ local Commands = {
 PlayerChatted:Connect(function(message)
     local lowerMessage = message:lower()
     for prefix, handler in pairs(Commands) do
-        if lowerMessage:sub(1, #prefix) == prefix then
-            handler(message, lowerMessage)
+        if lowerMessage:sub(1, #prefix) == prefix:lower() then
+            handler(message)
             return
         end
     end
 end)
 
--- ================================
--- PRINT HELP
--- ================================
-print("✅ All commands loaded!")
-print("WEAPONS: /g <weaponname>")
-print("FIGHTING STYLES: /f <stylename>")
-print("TRAVEL: /sea1, /sea2, /sea3")
-print("Examples:")
-print("/g Skull Guitar")
-print("/f Godhuman")
-print("/sea1 - Travel to First Sea")
-print("/sea2 - Travel to Second Sea")
-print("/sea3 - Travel to Third Sea")
+notify("✅ Loaded!", "Type /help for commands", 8)
