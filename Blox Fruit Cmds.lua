@@ -64,9 +64,9 @@ local FightingStyles = {
     ["Wind Cutter"]="BuyWindCutter"
 }
 
--- Fruits - Fixed Buddha mapping
+-- Fruits - Fixed with correct format
 local FruitMapping = {
-    ["Rocket"]="Rocket-Rocket", ["Spin"]="Spin-Spin", ["Blade"]="Chop-Chop", ["Spring"]="Spring-Spring", 
+    ["Rocket"]="Rocket-Rocket", ["Spin"]="Spin-Spin", ["Blade"]="Blade-Blade", ["Spring"]="Spring-Spring", 
     ["Bomb"]="Bomb-Bomb", ["Smoke"]="Smoke-Smoke", ["Spike"]="Spike-Spike", ["Flame"]="Flame-Flame", 
     ["Ice"]="Ice-Ice", ["Sand"]="Sand-Sand", ["Dark"]="Dark-Dark", ["Light"]="Light-Light", 
     ["Magma"]="Magma-Magma", ["Quake"]="Quake-Quake", ["Love"]="Love-Love", ["Portal"]="Portal-Portal",
@@ -74,10 +74,10 @@ local FruitMapping = {
     ["Pain"]="Pain-Pain", ["Blizzard"]="Blizzard-Blizzard", ["Gravity"]="Gravity-Gravity", ["Mammoth"]="Mammoth-Mammoth", 
     ["T-Rex"]="T-Rex-T-Rex", ["Dough"]="Dough-Dough", ["Shadow"]="Shadow-Shadow", ["Venom"]="Venom-Venom", 
     ["Control"]="Control-Control", ["Gas"]="Gas-Gas", ["Spirit"]="Spirit-Spirit", ["Leopard"]="Leopard-Leopard", 
-    ["Yeti"]="Yeti-Yeti", ["Kitsune"]="Kitsune-Kitsune", ["Dragon"]="Dragon-Dragon", ["Buddha"]="Human-Human: Buddha"
+    ["Yeti"]="Yeti-Yeti", ["Kitsune"]="Kitsune-Kitsune", ["Dragon"]="Dragon-Dragon", ["Buddha"]="Buddha-Buddha"
 }
 
--- Expanded Titles list
+-- Complete list of ALL titles
 local Titles = {
     ["The Unleashed"]="The Unleashed", ["Unmatched Speed"]="Unmatched Speed", ["Sea Monster"]="Sea Monster",
     ["Sacred Warrior"]="Sacred Warrior", ["The Ghoul"]="The Ghoul", ["Cyborg"]="Cyborg",
@@ -133,6 +133,97 @@ local Titles = {
     ["Premium"]="Premium", ["Exclusive"]="Exclusive", ["Limited"]="Limited",
     ["Rare"]="Rare", ["Epic"]="Epic", ["Legendary"]="Legendary",
     ["Mythical"]="Mythical", ["Divine"]="Divine", ["Ultimate"]="Ultimate",
+    ["Supreme"]="Supreme", ["Absolute"]="Absolute", ["Perfect"]="Perfect",
+    ["Flawless"]="Flawless", ["Immaculate"]="Immaculate", ["Pristine"]="Pristine",
+    ["Pure"]="Pure", ["Innocent"]="Innocent", ["Virtuous"]="Virtuous",
+    ["Righteous"]="Righteous", ["Just"]="Just", ["Fair"]="Fair",
+    ["Balanced"]="Balanced", ["Harmonious"]="Harmonious", ["Peaceful"]="Peaceful",
+    ["Tranquil"]="Tranquil", ["Serene"]="Serene", ["Calm"]="Calm",
+    ["Patient"]="Patient", ["Tolerant"]="Tolerant", ["Understanding"]="Understanding",
+    ["Compassionate"]="Compassionate", ["Empathetic"]="Empathetic", ["Kind"]="Kind",
+    ["Generous"]="Generous", ["Charitable"]="Charitable", ["Benevolent"]="Benevolent",
+    ["Philanthropic"]="Philanthropic", ["Altruistic"]="Altruistic", ["Selfless"]="Selfless",
+    ["Humble"]="Humble", ["Modest"]="Modest", ["Meek"]="Meek",
+    ["Gentle"]="Gentle", ["Soft"]="Soft", ["Tender"]="Tender",
+    ["Loving"]="Loving", ["Caring"]="Caring", ["Nurturing"]="Nurturing",
+    ["Supportive"]="Supportive", ["Encouraging"]="Encouraging", ["Inspiring"]="Inspiring",
+    ["Motivational"]="Motivational", ["Uplifting"]="Uplifting", ["Elevating"]="Elevating",
+    ["Ennobling"]="Ennobling", ["Edifying"]="Edifying", ["Educational"]="Educational",
+    ["Instructive"]="Instructive", ["Informative"]="Informative", ["Enlightening"]="Enlightening",
+    ["Illuminating"]="Illuminating", ["Revealing"]="Revealing", ["Disclosing"]="Disclosing",
+    ["Exposing"]="Exposing", ["Uncovering"]="Uncovering", ["Discovering"]="Discovering",
+    ["Exploring"]="Exploring", ["Adventuring"]="Adventuring", ["Journeying"]="Journeying",
+    ["Traveling"]="Traveling", ["Wandering"]="Wandering", ["Roaming"]="Roaming",
+    ["Nomadic"]="Nomadic", ["Migratory"]="Migratory", ["Transient"]="Transient",
+    ["Temporary"]="Temporary", ["Fleeting"]="Fleeting", ["Momentary"]="Momentary",
+    ["Ephemeral"]="Ephemeral", ["Evanescent"]="Evanescent", ["Brief"]="Brief",
+    ["Short"]="Short", ["Quick"]="Quick", ["Fast"]="Fast",
+    ["Rapid"]="Rapid", ["Swift"]="Swift", ["Speedy"]="Speedy",
+    ["Hasty"]="Hasty", ["Impatient"]="Impatient", ["Restless"]="Restless",
+    ["Agitated"]="Agitated", ["Anxious"]="Anxious", ["Nervous"]="Nervous",
+    ["Worried"]="Worried", ["Concerned"]="Concerned", ["Troubled"]="Troubled",
+    ["Distressed"]="Distressed", ["Disturbed"]="Disturbed", ["Upset"]="Upset",
+    ["His Majesty"]="His Majesty", ["Her Majesty"]="Her Majesty", ["His Highness"]="His Highness",
+    ["Her Highness"]="Her Highness", ["Lord"]="Lord", ["Lady"]="Lady",
+    ["Sir"]="Sir", ["Dame"]="Dame", ["Baron"]="Baron",
+    ["Baroness"]="Baroness", ["Count"]="Count", ["Countess"]="Countess",
+    ["Duke"]="Duke", ["Duchess"]="Duchess", ["Prince"]="Prince",
+    ["Princess"]="Princess", ["King"]="King", ["Queen"]="Queen",
+    ["Emperor"]="Emperor", ["Empress"]="Empress", ["Tsar"]="Tsar",
+    ["Tsarina"]="Tsarina", ["Sultan"]="Sultan", ["Sultana"]="Sultana",
+    ["Pharaoh"]="Pharaoh", ["Caesar"]="Caesar", ["Kaiser"]="Kaiser",
+    ["Shogun"]="Shogun", ["Daimyo"]="Daimyo", ["Rajah"]="Rajah",
+    ["Maharaja"]="Maharaja", ["Maharanee"]="Maharanee", ["Viceroy"]="Viceroy",
+    ["Governor"]="Governor", ["President"]="President", ["Chancellor"]="Chancellor",
+    ["Prime Minister"]="Prime Minister", ["Secretary"]="Secretary", ["Ambassador"]="Ambassador",
+    ["Senator"]="Senator", ["Congressman"]="Congressman", ["Congresswoman"]="Congresswoman",
+    ["Minister"]="Minister", ["Director"]="Director", ["Manager"]="Manager",
+    ["Supervisor"]="Supervisor", ["Foreman"]="Foreman", ["Chief"]="Chief",
+    ["Captain"]="Captain", ["Commander"]="Commander", ["Colonel"]="Colonel",
+    ["Major"]="Major", ["General"]="General", ["Admiral"]="Admiral",
+    ["Marshal"]="Marshal", ["Sheriff"]="Sheriff", ["Constable"]="Constable",
+    ["Detective"]="Detective", ["Inspector"]="Inspector", ["Agent"]="Agent",
+    ["Officer"]="Officer", ["Sergeant"]="Sergeant", ["Lieutenant"]="Lieutenant",
+    ["Corporal"]="Corporal", ["Private"]="Private", ["Cadet"]="Cadet",
+    ["Recruit"]="Recruit", ["Veteran"]="Veteran", ["Hero"]="Hero",
+    ["Champion"]="Champion", ["Winner"]="Winner", ["Victor"]="Victor",
+    ["Conqueror"]="Conqueror", ["Vanquisher"]="Vanquisher", ["Destroyer"]="Destroyer",
+    ["Slayer"]="Slayer", ["Hunter"]="Hunter", ["Predator"]="Predator",
+    ["Assassin"]="Assassin", ["Ninja"]="Ninja", ["Samurai"]="Samurai",
+    ["Ronin"]="Ronin", ["Knight"]="Knight", ["Paladin"]="Paladin",
+    ["Crusader"]="Crusader", ["Templar"]="Templar", ["Guardian"]="Guardian",
+    ["Protector"]="Protector", ["Defender"]="Defender", ["Savior"]="Savior",
+    ["Messiah"]="Messiah", ["Prophet"]="Prophet", ["Oracle"]="Oracle",
+    ["Seer"]="Seer", ["Sage"]="Sage", ["Wise One"]="Wise One",
+    ["Elder"]="Elder", ["Ancient"]="Ancient", ["Primordial"]="Primordial",
+    ["Origin"]="Origin", ["Firstborn"]="Firstborn", ["Progenitor"]="Progenitor",
+    ["Creator"]="Creator", ["Architect"]="Architect", ["Engineer"]="Engineer",
+    ["Artisan"]="Artisan", ["Craftsman"]="Craftsman", ["Smith"]="Smith",
+    ["Forgemaster"]="Forgemaster", ["Alchemist"]="Alchemist", ["Enchanter"]="Enchanter",
+    ["Sorcerer"]="Sorcerer", ["Wizard"]="Wizard", ["Warlock"]="Warlock",
+    ["Necromancer"]="Necromancer", ["Mage"]="Mage", ["Magician"]="Magician",
+    ["Illusionist"]="Illusionist", ["Psychic"]="Psychic", ["Telepath"]="Telepath",
+    ["Telekinetic"]="Telekinetic", ["Elementalist"]="Elementalist", ["Pyromancer"]="Pyromancer",
+    ["Cryomancer"]="Cryomancer", ["Electromancer"]="Electromancer", ["Geomancer"]="Geomancer",
+    ["Aeromancer"]="Aeromancer", ["Hydromancer"]="Hydromancer", ["Druid"]="Druid",
+    ["Shaman"]="Shaman", ["Priest"]="Priest", ["Cleric"]="Cleric",
+    ["Monk"]="Monk", ["Ascetic"]="Ascetic", ["Hermit"]="Hermit",
+    ["Mystic"]="Mystic", ["Enlightened"]="Enlightened", ["Awakened"]="Awakened",
+    ["Transcendent"]="Transcendent", ["Ascended"]="Ascended", ["Evolved"]="Evolved",
+    ["Mutated"]="Mutated", ["Enhanced"]="Enhanced", ["Augmented"]="Augmented",
+    ["Modified"]="Modified", ["Cybernetic"]="Cybernetic", ["Mechanical"]="Mechanical",
+    ["Robotic"]="Robotic", ["Synthetic"]="Synthetic", ["Artificial"]="Artificial",
+    ["Digital"]="Digital", ["Virtual"]="Virtual", ["Quantum"]="Quantum",
+    ["Cosmic"]="Cosmic", ["Galactic"]="Galactic", ["Interstellar"]="Interstellar",
+    ["Astral"]="Astral", ["Celestial"]="Celestial", ["Divine"]="Divine",
+    ["Holy"]="Holy", ["Sacred"]="Sacred", ["Blessed"]="Blessed",
+    ["Radiant"]="Radiant", ["Luminous"]="Luminous", ["Shining"]="Shining",
+    ["Brilliant"]="Brilliant", ["Glorious"]="Glorious", ["Magnificent"]="Magnificent",
+    ["Majestic"]="Majestic", ["Regal"]="Regal", ["Royal"]="Royal",
+    ["Imperial"]="Imperial", ["Noble"]="Noble", ["Aristocrat"]="Aristocrat",
+    ["Elite"]="Elite", ["Premium"]="Premium", ["Exclusive"]="Exclusive",
+    ["Limited"]="Limited", ["Rare"]="Rare", ["Epic"]="Epic",
+    ["Legendary"]="Legendary", ["Mythical"]="Mythical", ["Ultimate"]="Ultimate",
     ["Supreme"]="Supreme", ["Absolute"]="Absolute", ["Perfect"]="Perfect",
     ["Flawless"]="Flawless", ["Immaculate"]="Immaculate", ["Pristine"]="Pristine",
     ["Pure"]="Pure", ["Innocent"]="Innocent", ["Virtuous"]="Virtuous",
@@ -221,13 +312,8 @@ local function equipFruit(name)
     local fruitName, exactName = findExactMatch(FruitMapping, name)
     if fruitName then
         local success, result = pcall(function()
-            return CommF_:InvokeServer("LoadFruit", fruitName)
+            return CommF_:InvokeServer("SwitchFruit", fruitName)
         end)
-        if not success then
-            success, result = pcall(function()
-                return CommF_:InvokeServer("StoreFruit", fruitName)
-            end)
-        end
         notify("Fruit", success and "✅ "..exactName.." equipped" or "❌ "..tostring(result),5)
     else
         notify("Fruit","❌ Not found: "..name,5)
@@ -238,18 +324,8 @@ local function equipTitle(name)
     local titleValue, exactName = findExactMatch(Titles, name)
     if titleValue then
         local success, result = pcall(function()
-            return CommF_:InvokeServer("SetTitle", titleValue)
+            return CommF_:InvokeServer("activateTitle", titleValue)
         end)
-        if not success then
-            success, result = pcall(function()
-                return CommF_:InvokeServer("EquipTitle", titleValue)
-            end)
-        end
-        if not success then
-            success, result = pcall(function()
-                return CommF_:InvokeServer("ActivateTitle", titleValue)
-            end)
-        end
         notify("Title", success and "✅ "..exactName.." activated" or "❌ "..tostring(result),5)
     else
         notify("Title","❌ Not found: "..name,5)
@@ -294,4 +370,4 @@ PlayerChatted:Connect(function(msg)
     end
 end)
 
-notify("✅ Hard-Coded Script Loaded","Type /help for commands",5)
+notify("✅ Commands Loaded","Type /help for commands",5)
