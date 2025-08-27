@@ -65,13 +65,15 @@ local FightingStyles = {
 }
 
 local FruitMapping = {
-    ["Rocket"]="Rocket", ["Spin"]="Spin", ["Blade"]="Blade", ["Spring"]="Spring", ["Bomb"]="Bomb",
-    ["Smoke"]="Smoke", ["Spike"]="Spike", ["Flame"]="Flame", ["Ice"]="Ice", ["Sand"]="Sand", ["Dark"]="Dark",
-    ["Light"]="Light", ["Magma"]="Magma", ["Quake"]="Quake", ["Love"]="Love", ["Portal"]="Portal",
-    ["Spider"]="Spider", ["Sound"]="Sound", ["Phoenix"]="Phoenix", ["Rumble"]="Rumble", ["Pain"]="Pain",
-    ["Blizzard"]="Blizzard", ["Gravity"]="Gravity", ["Mammoth"]="Mammoth", ["T-Rex"]="T-Rex", ["Dough"]="Dough",
-    ["Shadow"]="Shadow", ["Venom"]="Venom", ["Control"]="Control", ["Gas"]="Gas", ["Spirit"]="Spirit",
-    ["Leopard"]="Leopard", ["Yeti"]="Yeti", ["Kitsune"]="Kitsune", ["Dragon"]="Dragon"
+    ["Rocket"]="Rocket-Rocket", ["Spin"]="Spin-Spin", ["Blade"]="Chop-Chop", ["Spring"]="Spring-Spring", 
+    ["Bomb"]="Bomb-Bomb", ["Smoke"]="Smoke-Smoke", ["Spike"]="Spike-Spike", ["Flame"]="Flame-Flame", 
+    ["Ice"]="Ice-Ice", ["Sand"]="Sand-Sand", ["Dark"]="Dark-Dark", ["Light"]="Light-Light", 
+    ["Magma"]="Magma-Magma", ["Quake"]="Quake-Quake", ["Love"]="Love-Love", ["Portal"]="Portal-Portal",
+    ["Spider"]="Spider-Spider", ["Sound"]="Sound-Sound", ["Phoenix"]="Phoenix-Phoenix", ["Rumble"]="Rumble-Rumble", 
+    ["Pain"]="Pain-Pain", ["Blizzard"]="Blizzard-Blizzard", ["Gravity"]="Gravity-Gravity", ["Mammoth"]="Mammoth-Mammoth", 
+    ["T-Rex"]="T-Rex-T-Rex", ["Dough"]="Dough-Dough", ["Shadow"]="Shadow-Shadow", ["Venom"]="Venom-Venom", 
+    ["Control"]="Control-Control", ["Gas"]="Gas-Gas", ["Spirit"]="Spirit-Spirit", ["Leopard"]="Leopard-Leopard", 
+    ["Yeti"]="Yeti-Yeti", ["Kitsune"]="Kitsune-Kitsune", ["Dragon"]="Dragon-Dragon"
 }
 
 local Titles = {
@@ -173,6 +175,16 @@ local function findExactMatch(tbl, searchName)
     return nil, nil
 end
 
+local function findTitleMatch(searchName)
+    searchName = searchName:lower()
+    for titleName, value in pairs(Titles) do
+        if titleName:lower():find(searchName) then
+            return value, titleName
+        end
+    end
+    return nil, nil
+end
+
 local function getWeapon(itemName)
     local category, exactName = findExactMatch(WeaponItems, itemName)
     if category then
@@ -210,24 +222,24 @@ local function travelToSea(seaNumber)
 end
 
 local function equipFruit(name)
-    local fruitName = FruitMapping[name]
+    local fruitName, exactName = findExactMatch(FruitMapping, name)
     if fruitName then
         local success, result = pcall(function()
-            return CommF_:InvokeServer("SwitchFruit", fruitName)
+            return CommF_:InvokeServer("StoreItem", fruitName)
         end)
-        notify("Fruit", success and "✅ "..fruitName.." equipped" or "❌ "..tostring(result),5)
+        notify("Fruit", success and "✅ "..exactName.." equipped" or "❌ "..tostring(result),5)
     else
         notify("Fruit","❌ Not found: "..name,5)
     end
 end
 
 local function equipTitle(name)
-    local titleName = Titles[name]
-    if titleName then
+    local titleValue, exactName = findTitleMatch(name)
+    if titleValue then
         local success, result = pcall(function()
-            return CommF_:InvokeServer("activateTitle", titleName)
+            return CommF_:InvokeServer("ActivateTitle", titleValue)
         end)
-        notify("Title", success and "✅ "..titleName.." activated" or "❌ "..tostring(result),5)
+        notify("Title", success and "✅ "..exactName.." activated" or "❌ "..tostring(result),5)
     else
         notify("Title","❌ Not found: "..name,5)
     end
