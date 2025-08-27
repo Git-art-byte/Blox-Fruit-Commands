@@ -5,7 +5,9 @@ local CommF_ = ReplicatedStorage.Remotes.CommF_
 local LocalPlayer = Players.LocalPlayer
 local PlayerChatted = LocalPlayer.Chatted
 
--- ALL WEAPONS (Swords + Guns) - WITH EXACT NAMES
+-- ================================
+-- ALL WEAPONS (Swords + Guns) - EXACT NAMES
+-- ================================
 local WeaponItems = {
     -- Swords
     ["Dark Blade"] = "Swords",
@@ -64,7 +66,7 @@ local WeaponItems = {
     ["Zweihander"] = "Swords",
 
     -- Guns
-    ["Skull Guitar"] = "Guns", -- FIXED: Changed from "Soul Guitar" to "Skull Guitar"
+    ["Skull Guitar"] = "Guns",
     ["Kabucha"] = "Guns",
     ["Acidum Rifle"] = "Guns",
     ["Bizarre Rifle"] = "Guns",
@@ -87,7 +89,9 @@ local WeaponItems = {
     ["Dragon's Breath"] = "Guns",
 }
 
--- ALL FIGHTING STYLES
+-- ================================
+-- ALL FIGHTING STYLES - EXACT NAMES
+-- ================================
 local FightingStyles = {
     ["Godhuman"] = "BuyGodhuman",
     ["Superhuman"] = "BuySuperhuman",
@@ -125,10 +129,12 @@ local FightingStyles = {
     ["Wind Cutter"] = "BuyWindCutter",
 }
 
--- Function to find exact match (case-insensitive search, returns exact name)
-local function findExactMatch(table, searchName)
+-- ================================
+-- Helpers
+-- ================================
+local function findExactMatch(tbl, searchName)
     searchName = searchName:lower()
-    for itemName, value in pairs(table) do
+    for itemName, value in pairs(tbl) do
         if itemName:lower() == searchName then
             return value, itemName
         end
@@ -136,69 +142,101 @@ local function findExactMatch(table, searchName)
     return nil, nil
 end
 
--- Function to get weapon
 local function getWeapon(itemName)
     local category, exactName = findExactMatch(WeaponItems, itemName)
-    
     if category then
         print("Loading: " .. exactName .. " (" .. category .. ")")
-        
-        local success, result = pcall(function()
-            return CommF_:InvokeServer("LoadItem", exactName, {category})
+        local ok, result = pcall(function()
+            return CommF_:InvokeServer("LoadItem", exactName, { category })
         end)
-
-        if success then
-            print("✅ Success!")
-        else
-            print("❌ Error: " .. tostring(result))
-        end
+        print(ok and "✅ Success!" or "❌ Error: " .. tostring(result))
     else
         print("❌ Weapon not found: " .. itemName)
     end
 end
 
--- Function to get fighting style
 local function getFightingStyle(styleName)
     local remoteCommand, exactName = findExactMatch(FightingStyles, styleName)
-    
     if remoteCommand then
         print("Getting: " .. exactName .. " -> " .. remoteCommand)
-        
-        local success, result = pcall(function()
+        local ok, result = pcall(function()
             return CommF_:InvokeServer(remoteCommand)
         end)
-
-        if success then
-            print("✅ Success!")
-        else
-            print("❌ Error: " .. tostring(result))
-        end
+        print(ok and "✅ Success!" or "❌ Error: " .. tostring(result))
     else
         print("❌ Fighting style not found: " .. styleName)
     end
 end
 
--- Connect chat commands
-PlayerChatted:Connect(function(message)
-    local command = message:lower()
+local function travelToSea(seaNumber)
+    local travelCommands = {
+        ["1"] = "TravelMain",
+        ["2"] = "TravelDressrosa",
+        ["3"] = "TravelZou",
+    }
+    local command = travelCommands[seaNumber]
+    if command then
+        print("Traveling to Sea " .. seaNumber .. " -> " .. command)
+        local ok, result = pcall(function()
+            return CommF_:InvokeServer(command)
+        end)
+        print(ok and "✅ Travel successful!" or "❌ Travel error: " .. tostring(result))
+    else
+        print("❌ Invalid sea number. Use /sea1, /sea2, or /sea3")
+    end
+end
 
-    if command:sub(1, 3) == "/g " then
-        local itemName = message:sub(4)
+-- ================================
+-- COMMANDS TABLE
+-- (keys include the space for arg-taking commands)
+-- ================================
+local Commands = {
+    ["/g "] = function(original, lower)
+        local itemName = original:sub(#"/g " + 1)
+        if itemName == "" then
+            print("Usage: /g <weapon name>")
+            return
+        end
         getWeapon(itemName)
-        
-    elseif command:sub(1, 3) == "/f " then
-        local styleName = message:sub(4)
+    end,
+
+    ["/f "] = function(original, lower)
+        local styleName = original:sub(#"/f " + 1)
+        if styleName == "" then
+            print("Usage: /f <style name>")
+            return
+        end
         getFightingStyle(styleName)
+    end,
+
+    ["/sea1"] = function() travelToSea("1") end,
+    ["/sea2"] = function() travelToSea("2") end,
+    ["/sea3"] = function() travelToSea("3") end,
+}
+
+-- ================================
+-- CHAT LISTENER
+-- ================================
+PlayerChatted:Connect(function(message)
+    local lowerMessage = message:lower()
+    for prefix, handler in pairs(Commands) do
+        if lowerMessage:sub(1, #prefix) == prefix then
+            handler(message, lowerMessage)
+            return
+        end
     end
 end)
 
-print("✅ All weapons and fighting styles loaded!")
+-- ================================
+-- PRINT HELP
+-- ================================
+print("✅ All commands loaded!")
 print("WEAPONS: /g <weaponname>")
 print("FIGHTING STYLES: /f <stylename>")
+print("TRAVEL: /sea1, /sea2, /sea3")
 print("Examples:")
-print("/g Skull Guitar")  -- FIXED: Changed from Soul Guitar to Skull Guitar
-print("/g Cursed Dual Katana")
-print("/g Kabucha")
+print("/g Skull Guitar")
 print("/f Godhuman")
-print("/f Electric Claw")
-print("/f Death Step")
+print("/sea1 - Travel to First Sea")
+print("/sea2 - Travel to Second Sea")
+print("/sea3 - Travel to Third Sea")
