@@ -62,7 +62,7 @@ local TravelCommands = {["1"]="TravelMain",["2"]="TravelDressrosa",["3"]="Travel
 local aimbotEnabled = false
 local aimbotTarget = nil
 local aimbotConnection = nil
-local aimbotRadius = 300 -- default radius
+local aimbotRadius = 700 -- default radius
 
 local function findClosestPlayer()
     local closest = nil
