@@ -1,25 +1,312 @@
--- GUI.luau
--- Creates a draggable, mobile-friendly Admin Panel with tabs
+-- ================================
+-- COMBINED SCRIPT: CMD + GUI
+-- ================================
 
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local StarterGui = game:GetService("StarterGui")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+
+local CommF_ = ReplicatedStorage.Remotes.CommF_
 local LocalPlayer = Players.LocalPlayer
+local PlayerChatted = LocalPlayer.Chatted
+local Camera = workspace.CurrentCamera
+
+-- ================================
+-- Notification (shared)
+-- ================================
+local function notify(title, text, duration)
+    pcall(function()
+        StarterGui:SetCore("SendNotification", { Title = title, Text = text, Duration = duration or 5 })
+    end)
+end
+_G.Notify = notify
+
+-- ================================
+-- Data tables
+-- ================================
+local FruitMapping = {
+    ["Rocket"]="Rocket-Rocket", ["Spin"]="Spin-Spin", ["Blade"]="Blade-Blade", ["Spring"]="Spring-Spring", 
+    ["Bomb"]="Bomb-Bomb", ["Smoke"]="Smoke-Smoke", ["Spike"]="Spike-Spike", ["Flame"]="Flame-Flame", 
+    ["Ice"]="Ice-Ice", ["Sand"]="Sand-Sand", ["Dark"]="Dark-Dark", ["Light"]="Light-Light", 
+    ["Magma"]="Magma-Magma", ["Quake"]="Quake-Quake", ["Love"]="Love-Love", ["Portal"]="Portal-Portal",
+    ["Spider"]="Spider-Spider", ["Sound"]="Sound-Sound", ["Phoenix"]="Phoenix-Phoenix", ["Rumble"]="Rumble-Rumble", 
+    ["Pain"]="Pain-Pain", ["Blizzard"]="Blizzard-Blizzard", ["Gravity"]="Gravity-Gravity", ["Mammoth"]="Mammoth-Mammoth", 
+    ["T-Rex"]="T-Rex-T-Rex", ["Dough"]="Dough-Dough", ["Shadow"]="Shadow-Shadow", ["Venom"]="Venom-Venom", 
+    ["Control"]="Control-Control", ["Gas"]="Gas-Gas", ["Spirit"]="Spirit-Spirit", ["Tiger"]="Tiger-Tiger", 
+    ["Yeti"]="Yeti-Yeti", ["Kitsune"]="Kitsune-Kitsune", ["Dragon"]="Dragon-Dragon", ["Buddha"]="Buddha-Buddha"
+}
+local Shortcuts = {
+    ["leo"] = "Tiger", ["cdk"] = "Cursed Dual Katana", ["kab"] = "Kabucha",
+    ["sc"] = "Soul Cane", ["soul"] = "Soul Cane", ["sg"] = "Skull Guitar",
+}
+local TravelCommands = {["1"]="TravelMain",["2"]="TravelDressrosa",["3"]="TravelZou"}
+
+-- ================================
+-- Standard Aimbot
+-- ================================
+local aimbotEnabled, aimbotTarget, aimbotConnection, aimbotRadius = false, nil, nil, 300
+local function findClosestPlayerScreen()
+    local closest, shortestDist = nil, math.huge
+    local viewportSize, center = Camera.ViewportSize, Camera.ViewportSize / 2
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+            local hrp = plr.Character.HumanoidRootPart
+            local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+            if onScreen then
+                local screenDist = (center - Vector2.new(pos.X, pos.Y)).Magnitude
+                local worldDist = (hrp.Position - Camera.CFrame.Position).Magnitude
+                if screenDist < shortestDist and worldDist <= aimbotRadius then
+                    shortestDist, closest = screenDist, plr
+                end
+            end
+        end
+    end
+    return closest
+end
+local function startAimbot(radius)
+    if radius then aimbotRadius = radius end
+    if aimbotConnection then aimbotConnection:Disconnect(); aimbotConnection = nil end
+    aimbotEnabled = true
+    aimbotTarget = findClosestPlayerScreen()
+    if not aimbotTarget then notify("Aimbot", "❌ No target", 5) aimbotEnabled = false return end
+    notify("Aimbot", "✅ Locked " .. aimbotTarget.Name, 5)
+    aimbotConnection = RunService.RenderStepped:Connect(function()
+        if not aimbotEnabled then return end
+        if not aimbotTarget or not aimbotTarget.Character or not aimbotTarget.Character:FindFirstChild("HumanoidRootPart") then
+            aimbotTarget = findClosestPlayerScreen()
+            if not aimbotTarget then notify("Aimbot", "❌ Lost target", 5) aimbotEnabled = false return end
+            notify("Aimbot", "✅ New target " .. aimbotTarget.Name, 5)
+        end
+        local hrp = aimbotTarget.Character.HumanoidRootPart
+        if hrp then Camera.CFrame = CFrame.new(Camera.CFrame.Position, hrp.Position) end
+    end)
+end
+local function stopAimbot()
+    aimbotEnabled = false; aimbotTarget = nil
+    if aimbotConnection then aimbotConnection:Disconnect(); aimbotConnection = nil end
+end
+_G.StartAimbot = startAimbot
+_G.StopAimbot = stopAimbot
+
+-- ================================
+-- OpFun (Aimbot + Attributes + Target storage)
+-- ================================
+local opAimbotEnabled, opAimbotTarget, opAimbotConnection, opAimbotSearchString = false, nil, nil, nil
+_G.OpFunTarget = nil
+
+local function findPlayerByString(search)
+    if not search or search == "" then return nil end
+    local lower = search:lower()
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer then
+            if plr.Name:lower():find(lower, 1, true) or plr.DisplayName:lower():find(lower, 1, true) then
+                return plr
+            end
+        end
+    end
+    return nil
+end
+local function findClosestPlayerDistance()
+    local closest, shortestDist = nil, math.huge
+    local myPos = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not myPos then return nil end
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+            local hrp = plr.Character.HumanoidRootPart
+            local dist = (hrp.Position - myPos.Position).Magnitude
+            if dist < shortestDist then shortestDist, closest = dist, plr end
+        end
+    end
+    return closest
+end
+local function getOpTarget()
+    if opAimbotSearchString and opAimbotSearchString ~= "" then
+        return findPlayerByString(opAimbotSearchString)
+    else
+        return findClosestPlayerDistance()
+    end
+end
+local function startOpAimbot(searchString)
+    if opAimbotConnection then opAimbotConnection:Disconnect(); opAimbotConnection = nil end
+    opAimbotEnabled = true
+    opAimbotSearchString = searchString or nil
+    opAimbotTarget = getOpTarget()
+    if not opAimbotTarget then
+        notify("OpFun", opAimbotSearchString and "❌ No player '"..opAimbotSearchString.."'" or "❌ No players nearby", 5)
+        opAimbotEnabled = false
+        return
+    end
+    _G.OpFunTarget = opAimbotTarget
+    notify("OpFun", "✅ Locked " .. opAimbotTarget.Name, 5)
+    opAimbotConnection = RunService.RenderStepped:Connect(function()
+        if not opAimbotEnabled then return end
+        if not opAimbotTarget or not opAimbotTarget.Character or not opAimbotTarget.Character:FindFirstChild("HumanoidRootPart") then
+            opAimbotTarget = getOpTarget()
+            if not opAimbotTarget then
+                if not opAimbotSearchString then notify("OpFun", "❌ Lost target", 5) opAimbotEnabled = false return end
+                return
+            end
+            _G.OpFunTarget = opAimbotTarget
+            notify("OpFun", "✅ Re-acquired " .. opAimbotTarget.Name, 5)
+        end
+        local hrp = opAimbotTarget.Character.HumanoidRootPart
+        if hrp then Camera.CFrame = CFrame.new(Camera.CFrame.Position, hrp.Position) end
+    end)
+end
+local function stopOpAimbot()
+    opAimbotEnabled = false; opAimbotTarget = nil; _G.OpFunTarget = nil
+    if opAimbotConnection then opAimbotConnection:Disconnect(); opAimbotConnection = nil end
+    opAimbotSearchString = nil
+end
+
+-- Attribute loop
+local opFunLoopConnection, opFunActive, opFunOriginalAttrs = nil, false, {}
+local function storeOriginalAttributes()
+    local char = LocalPlayer.Character
+    if not char then return end
+    opFunOriginalAttrs = {}
+    for name, value in pairs(char:GetAttributes()) do
+        if string.lower(name):find("cooldown") or name == "DashLength" or name == "DodgeBoost" or 
+           name == "ObservationRange" or name == "SpeedMultiplier" or name == "SkyJumpCost" or name == "SkyJumpBoost" then
+            opFunOriginalAttrs[name] = value
+        end
+    end
+end
+local function applyOpFunAttributes()
+    local char = LocalPlayer.Character
+    if not char then return end
+    if next(opFunOriginalAttrs) == nil then storeOriginalAttributes() end
+    local specific = {DashLength=250, DodgeBoost=1000, ObservationRange=10000, SpeedMultiplier=10, SkyJumpCost=0, SkyJumpBoost=6}
+    for name, val in pairs(specific) do char:SetAttribute(name, val) end
+    for name, _ in pairs(char:GetAttributes()) do
+        if string.lower(name):find("cooldown") then char:SetAttribute(name, 0) end
+    end
+end
+local function restoreOriginalAttributes()
+    local char = LocalPlayer.Character
+    if not char then return end
+    for name, val in pairs(opFunOriginalAttrs) do char:SetAttribute(name, val) end
+    opFunOriginalAttrs = {}
+end
+local function startOpFunLoop()
+    if opFunLoopConnection then opFunLoopConnection:Disconnect(); opFunLoopConnection = nil end
+    opFunActive = true; opFunOriginalAttrs = {}; applyOpFunAttributes()
+    opFunLoopConnection = RunService.Heartbeat:Connect(function()
+        if not opFunActive then return end; applyOpFunAttributes()
+    end)
+    notify("OpFun", "✅ Attribute loop started", 5)
+end
+local function stopOpFunLoopAndRestore()
+    opFunActive = false; if opFunLoopConnection then opFunLoopConnection:Disconnect(); opFunLoopConnection = nil end
+    restoreOriginalAttributes()
+    notify("OpFun", "✅ Attributes restored", 5)
+end
+_G.StartOpFun = function(search)
+    stopAimbot()
+    if opFunActive then stopOpFunLoopAndRestore(); stopOpAimbot() end
+    startOpAimbot(search)
+    if opAimbotEnabled then startOpFunLoop() end
+end
+_G.StopOpFun = function()
+    stopOpAimbot(); stopOpFunLoopAndRestore()
+end
+
+-- ================================
+-- Teleport + Ice Combo
+-- ================================
+_G.TeleportAndIceCombo = function()
+    local target = _G.OpFunTarget
+    if not target or not target.Character or not target.Character:FindFirstChild("HumanoidRootPart") then
+        notify("Combo", "❌ No valid OpFun target", 5)
+        return
+    end
+    local myChar = LocalPlayer.Character
+    if not myChar or not myChar.PrimaryPart then notify("Combo", "❌ No character", 5) return end
+    local targetPos = target.Character.HumanoidRootPart.Position
+    pcall(function()
+        myChar:SetPrimaryPartCFrame(CFrame.new(targetPos + Vector3.new(0, 3, 0)))
+    end)
+    local function castIce(move)
+        local args = {[1] = move, n = 1}
+        pcall(function()
+            workspace.Characters[LocalPlayer.Name].Humanoid:FindFirstChild(""):InvokeServer(unpack(args, 1, args.n or #args))
+        end)
+    end
+    castIce("V")
+    task.wait(0.3)
+    castIce("C")
+    task.wait(0.3)
+    castIce("Z")
+    notify("Combo", "✅ Teleported & Ice combo executed", 5)
+end
+
+-- ================================
+-- Individual command functions for GUI
+-- ================================
+_G.LoadItem = function(name)
+    if not name or name == "" then notify("Item", "❌ Specify name", 5) return end
+    local shortcut = Shortcuts[name:lower()]
+    if shortcut then name = shortcut end
+    for fruit, remote in pairs(FruitMapping) do
+        if fruit:lower() == name:lower() then
+            local s, r = pcall(function() return CommF_:InvokeServer("SwitchFruit", remote) end)
+            notify("Fruit", s and "✅ "..fruit or "❌ "..tostring(r), 5)
+            return
+        end
+    end
+    local s, r = pcall(function() return CommF_:InvokeServer("LoadItem", name, nil) end)
+    notify("Weapon", s and "✅ "..name or "❌ "..tostring(r), 5)
+end
+_G.ActivateTitle = function(name)
+    if not name or name == "" then notify("Title", "❌ Specify title", 5) return end
+    local s, r = pcall(function() return CommF_:InvokeServer("activateTitle", name) end)
+    notify("Title", s and "✅ "..name or "❌ "..tostring(r), 5)
+end
+_G.TravelSea = function(sea)
+    local cmd = TravelCommands[tostring(sea)]
+    if not cmd then notify("Travel", "❌ Use 1,2,3", 5) return end
+    local s, r = pcall(function() return CommF_:InvokeServer(cmd) end)
+    notify("Travel", s and "✅ Sea "..sea or "❌ "..tostring(r), 5)
+end
+_G.SetTeam = function(team)
+    local t = team:lower():find("pirate") and "Pirates" or "Marines"
+    local s, r = pcall(function() return CommF_:InvokeServer("SetTeam", t) end)
+    notify("Team", s and "✅ "..t or "❌ "..tostring(r), 5)
+end
+
+-- ================================
+-- Chat Listener (still active)
+-- ================================
+PlayerChatted:Connect(function(msg)
+    local split = msg:split(" ")
+    local cmd = split[1]:lower()
+    local arg = table.concat(split, " ", 2)
+    if cmd == "/i" then _G.LoadItem(arg)
+    elseif cmd == "/tt" then _G.ActivateTitle(arg)
+    elseif cmd == "/sea1" then _G.TravelSea(1)
+    elseif cmd == "/sea2" then _G.TravelSea(2)
+    elseif cmd == "/sea3" then _G.TravelSea(3)
+    elseif cmd == "/pirate" then _G.SetTeam("Pirates")
+    elseif cmd == "/marine" then _G.SetTeam("Marines")
+    elseif cmd == "/aimbot" then _G.StartAimbot(tonumber(arg) or 300)
+    elseif cmd == "/unaimbot" then _G.StopAimbot()
+    elseif cmd == "/opfun" then _G.StartOpFun(arg)
+    elseif cmd == "/unopfun" then _G.StopOpFun()
+    end
+end)
+
+-- ================================
+-- ================================
+-- GUI CREATION (draggable, mobile-friendly)
+-- ================================
+-- ================================
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Parent = LocalPlayer.PlayerGui
 ScreenGui.ResetOnSpawn = false
 
-local function notify(title, text, duration)
-    pcall(function()
-        game:GetService("StarterGui"):SetCore("SendNotification", {
-            Title = title,
-            Text = text,
-            Duration = duration or 5
-        })
-    end)
-end
-
--- ================================
 -- Main Frame
--- ================================
 local mainFrame = Instance.new("Frame")
 mainFrame.Size = UDim2.new(0, 360, 0, 500)
 mainFrame.Position = UDim2.new(0.5, -180, 0.5, -250)
@@ -29,12 +316,11 @@ mainFrame.BorderSizePixel = 0
 mainFrame.ClipsDescendants = true
 mainFrame.Parent = ScreenGui
 
--- Rounded corners via UICorner
 local corner = Instance.new("UICorner")
 corner.CornerRadius = UDim.new(0, 12)
 corner.Parent = mainFrame
 
--- Shadow (optional) - just a drop shadow using a second frame
+-- Shadow
 local shadow = Instance.new("Frame")
 shadow.Size = mainFrame.Size + UDim2.new(0, 4, 0, 4)
 shadow.Position = mainFrame.Position + UDim2.new(0, -2, 0, -2)
@@ -46,7 +332,6 @@ shadow.ZIndex = 0
 local shadowCorner = Instance.new("UICorner")
 shadowCorner.CornerRadius = UDim.new(0, 14)
 shadowCorner.Parent = shadow
--- Keep shadow behind main
 shadow:GetPropertyChangedSignal("Size"):Connect(function()
     shadow.Size = mainFrame.Size + UDim2.new(0, 4, 0, 4)
 end)
@@ -64,10 +349,6 @@ titleBar.Parent = mainFrame
 local titleCorner = Instance.new("UICorner")
 titleCorner.CornerRadius = UDim.new(0, 12)
 titleCorner.Parent = titleBar
--- Only top corners rounded
-local titleCorner2 = Instance.new("UICorner")
-titleCorner2.CornerRadius = UDim.new(0, 0)
-titleCorner2.Parent = titleBar -- will override? better to use a separate frame for top part, but we can live with it.
 
 local titleLabel = Instance.new("TextLabel")
 titleLabel.Size = UDim2.new(1, -80, 1, 0)
@@ -98,7 +379,7 @@ closeBtn.MouseButton1Click:Connect(function()
     ScreenGui:Destroy()
 end)
 
--- Drag logic (mobile & pc)
+-- Drag logic
 local dragging, dragInput, dragStart, startPos
 titleBar.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -121,14 +402,12 @@ titleBar.InputChanged:Connect(function(input)
     end
 end)
 
--- ================================
 -- Tabs
--- ================================
 local tabs = {"Items", "Travel", "Aimbot", "OpFun", "Utility"}
 local tabButtons = {}
 local currentTab = nil
 local contentFrame = Instance.new("Frame")
-contentFrame.Size = UDim2.new(1, 0, 1, -80)  -- leave space for tabs and title
+contentFrame.Size = UDim2.new(1, 0, 1, -80)
 contentFrame.Position = UDim2.new(0, 0, 0, 70)
 contentFrame.BackgroundTransparency = 1
 contentFrame.Parent = mainFrame
@@ -140,11 +419,7 @@ tabBar.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
 tabBar.BackgroundTransparency = 0.3
 tabBar.BorderSizePixel = 0
 tabBar.Parent = mainFrame
-local tabCorner = Instance.new("UICorner")
-tabCorner.CornerRadius = UDim.new(0, 0)
-tabCorner.Parent = tabBar
 
--- Create tab buttons
 for i, name in ipairs(tabs) do
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(1 / #tabs, 0, 1, 0)
@@ -164,30 +439,24 @@ for i, name in ipairs(tabs) do
 
     btn.MouseButton1Click:Connect(function()
         if currentTab then
-            -- Reset previous tab button
             tabButtons[currentTab].BackgroundTransparency = 0.8
             tabButtons[currentTab].TextColor3 = Color3.fromRGB(200,200,200)
         end
         currentTab = name
         btn.BackgroundTransparency = 0.4
         btn.TextColor3 = Color3.fromRGB(255,255,255)
-        -- Clear content and build new UI
         for _, child in ipairs(contentFrame:GetChildren()) do child:Destroy() end
         BuildTab(name)
     end)
 end
--- Default tab
 tabButtons["Items"].BackgroundTransparency = 0.4
 tabButtons["Items"].TextColor3 = Color3.fromRGB(255,255,255)
 currentTab = "Items"
 BuildTab("Items")
 
--- ================================
--- Tab Building Functions
--- ================================
+-- Build functions
 function BuildTab(tabName)
     if tabName == "Items" then
-        -- Weapon/Fruit input + load button
         local label = Instance.new("TextLabel")
         label.Size = UDim2.new(1, -20, 0, 25)
         label.Position = UDim2.new(0, 10, 0, 10)
@@ -231,7 +500,6 @@ function BuildTab(tabName)
             _G.LoadItem(input.Text)
         end)
 
-        -- Title input
         local titleLabel = Instance.new("TextLabel")
         titleLabel.Size = UDim2.new(1, -20, 0, 25)
         titleLabel.Position = UDim2.new(0, 10, 0, 90)
@@ -297,7 +565,6 @@ function BuildTab(tabName)
             end)
             y = y + 55
         end
-        -- Team buttons
         local teamY = y + 10
         local pirateBtn = Instance.new("TextButton")
         pirateBtn.Size = UDim2.new(0.35, 0, 0, 45)
@@ -364,7 +631,6 @@ function BuildTab(tabName)
 
     elseif tabName == "OpFun" then
         local y = 20
-        -- Target input
         local targetLabel = Instance.new("TextLabel")
         targetLabel.Size = UDim2.new(1, -20, 0, 25)
         targetLabel.Position = UDim2.new(0, 10, 0, y)
@@ -427,7 +693,6 @@ function BuildTab(tabName)
         opOff.MouseButton1Click:Connect(function() _G.StopOpFun() end)
 
         y = y + 60
-        -- Teleport + Ice Combo button
         local comboBtn = Instance.new("TextButton")
         comboBtn.Size = UDim2.new(0.8, 0, 0, 50)
         comboBtn.Position = UDim2.new(0.1, 0, 0, y)
@@ -446,9 +711,7 @@ function BuildTab(tabName)
         end)
 
     elseif tabName == "Utility" then
-        -- Add any extra buttons here
         local y = 20
-        -- Example: Reset speed, etc.
         local label = Instance.new("TextLabel")
         label.Size = UDim2.new(1, -20, 0, 50)
         label.Position = UDim2.new(0, 10, 0, y)
@@ -462,7 +725,4 @@ function BuildTab(tabName)
     end
 end
 
--- ================================
--- Startup Notification
--- ================================
 notify("Admin Panel", "✅ GUI loaded – drag the title bar to move", 5)
