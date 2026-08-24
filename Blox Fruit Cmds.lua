@@ -9,7 +9,7 @@ local LocalPlayer = Players.LocalPlayer
 local PlayerChatted = LocalPlayer.Chatted
 
 -- ================================
--- Notification Function
+-- Notification
 -- ================================
 local function notify(title, text, duration)
     pcall(function()
@@ -32,99 +32,62 @@ local FruitMapping = {
     ["Spider"]="Spider-Spider", ["Sound"]="Sound-Sound", ["Phoenix"]="Phoenix-Phoenix", ["Rumble"]="Rumble-Rumble", 
     ["Pain"]="Pain-Pain", ["Blizzard"]="Blizzard-Blizzard", ["Gravity"]="Gravity-Gravity", ["Mammoth"]="Mammoth-Mammoth", 
     ["T-Rex"]="T-Rex-T-Rex", ["Dough"]="Dough-Dough", ["Shadow"]="Shadow-Shadow", ["Venom"]="Venom-Venom", 
-    ["Control"]="Control-Control", ["Gas"]="Gas-Gas", ["Spirit"]="Spirit-Spirit", ["Tiger" or "Leo"]="Tiger-Tiger", 
+    ["Control"]="Control-Control", ["Gas"]="Gas-Gas", ["Spirit"]="Spirit-Spirit", ["Tiger"]="Tiger-Tiger", 
     ["Yeti"]="Yeti-Yeti", ["Kitsune"]="Kitsune-Kitsune", ["Dragon"]="Dragon-Dragon", ["Buddha"]="Buddha-Buddha"
 }
 
 -- ================================
--- Travel commands
+-- Shortcuts for /i
+-- Add any alias here : "shortcut" = "actual_name"
+-- ================================
+local Shortcuts = {
+    ["leo" or "Leo"] = "Tiger",   -- because Tiger used to be called Leopard
+    ["cdk" or "Cdk"] = "Cursed Dual Katana",
+    ["kab" or "Kab"] = "Kabucha",
+    ["sc" or "Sc"] = "Soul Cane",
+    ["sg" or "soul" or "Soul" or "Sg"] = "Skull Guitar",
+    -- Add more as needed
+}
+
+-- ================================
+-- Travel
 -- ================================
 local TravelCommands = {["1"]="TravelMain",["2"]="TravelDressrosa",["3"]="TravelZou"}
 
 -- ================================
--- Speed Loop (RELIABLE)
--- ================================
-local speedLoopActive = false
-local speedLoopThread = nil
-local targetSpeed = nil
-
-local function stopSpeedLoop()
-    speedLoopActive = false
-    if speedLoopThread then
-        task.cancel(speedLoopThread)
-        speedLoopThread = nil
-    end
-end
-
-local function startSpeedLoop(speed)
-    stopSpeedLoop() -- kill old loop
-    targetSpeed = speed
-    speedLoopActive = true
-    
-    -- Spawn a persistent loop
-    speedLoopThread = task.spawn(function()
-        while speedLoopActive do
-            local char = LocalPlayer.Character
-            if char then
-                local humanoid = char:FindFirstChildOfClass("Humanoid")
-                if humanoid then
-                    humanoid.WalkSpeed = targetSpeed
-                end
-            end
-            task.wait(0.1) -- adjust if needed
-        end
-    end)
-end
-
--- Also re-apply speed when character respawns
-LocalPlayer.CharacterAdded:Connect(function(char)
-    if speedLoopActive and targetSpeed ~= nil then
-        task.wait(0.5) -- wait for humanoid to load
-        local humanoid = char:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            humanoid.WalkSpeed = targetSpeed
-        end
-    end
-end)
-
--- ================================
--- Command Functions
+-- Commands
 -- ================================
 
--- /i : weapon OR fruit
 local function handleItem(itemName)
     if not itemName or itemName == "" then
         notify("Item", "❌ Please specify a weapon or fruit name", 5)
         return
     end
 
-    local fruitKey = itemName:lower()
+    -- Check shortcuts first
+    local shortcutName = Shortcuts[itemName:lower()]
+    if shortcutName then
+        itemName = shortcutName
+    end
+
+    -- Check if it's a fruit
     for name, remoteName in pairs(FruitMapping) do
-        if name:lower() == fruitKey then
+        if name:lower() == itemName:lower() then
             local success, result = pcall(function()
                 return CommF_:InvokeServer("SwitchFruit", remoteName)
             end)
-            if success then
-                notify("Fruit", "✅ Equipped " .. name, 5)
-            else
-                notify("Fruit", "❌ " .. tostring(result), 5)
-            end
+            notify("Fruit", success and "✅ Equipped " .. name or "❌ " .. tostring(result), 5)
             return
         end
     end
 
-    -- Weapon fallback
+    -- If not a fruit, treat as weapon (LoadItem)
     local success, result = pcall(function()
         return CommF_:InvokeServer("LoadItem", itemName, nil)
     end)
-    if success then
-        notify("Weapon", "✅ Loaded " .. itemName, 5)
-    else
-        notify("Weapon", "❌ " .. tostring(result), 5)
-    end
+    notify("Weapon", success and "✅ Loaded " .. itemName or "❌ " .. tostring(result), 5)
 end
 
--- /tt : title
 local function equipTitle(titleName)
     if not titleName or titleName == "" then
         notify("Title", "❌ Please specify a title name", 5)
@@ -133,14 +96,9 @@ local function equipTitle(titleName)
     local success, result = pcall(function()
         return CommF_:InvokeServer("activateTitle", titleName)
     end)
-    if success then
-        notify("Title", "✅ Activated " .. titleName, 5)
-    else
-        notify("Title", "❌ " .. tostring(result), 5)
-    end
+    notify("Title", success and "✅ Activated " .. titleName or "❌ " .. tostring(result), 5)
 end
 
--- Travel
 local function travelToSea(seaNumber)
     local command = TravelCommands[seaNumber]
     if command then
@@ -149,11 +107,10 @@ local function travelToSea(seaNumber)
         end)
         notify("Travel", success and "✅ Travel to Sea "..seaNumber or "❌ "..tostring(result),5)
     else
-        notify("Travel","❌ Invalid sea number. Use /sea1, /sea2, /sea3",5)
+        notify("Travel","❌ Use /sea1, /sea2, /sea3",5)
     end
 end
 
--- Team
 local function setTeam(teamName)
     local team = teamName:lower():find("pirate") and "Pirates" or "Marines"
     local success, result = pcall(function()
@@ -162,29 +119,12 @@ local function setTeam(teamName)
     notify("Team", success and "✅ Joined "..team or "❌ "..tostring(result),5)
 end
 
--- /speed : start the loop
-local function setSpeedLoop(arg)
-    if not arg or arg == "" then
-        notify("Speed", "❌ Please specify a number", 5)
-        return
-    end
-    local speed = tonumber(arg)
-    if not speed then
-        notify("Speed", "❌ Invalid number: " .. arg, 5)
-        return
-    end
-
-    startSpeedLoop(speed)
-    notify("Speed", "✅ Speed loop started at " .. speed .. " (runs forever)", 5)
-end
-
 -- ================================
 -- Command Table
 -- ================================
 local Commands = {
     ["/i"] = handleItem,
     ["/tt"] = equipTitle,
-    ["/speed"] = setSpeedLoop,
     ["/sea1"] = function() travelToSea("1") end,
     ["/sea2"] = function() travelToSea("2") end,
     ["/sea3"] = function() travelToSea("3") end,
@@ -192,9 +132,6 @@ local Commands = {
     ["/marine"] = function() setTeam("Marines") end,
 }
 
--- ================================
--- Chat Listener
--- ================================
 PlayerChatted:Connect(function(msg)
     local split = msg:split(" ")
     local cmd = split[1]:lower()
