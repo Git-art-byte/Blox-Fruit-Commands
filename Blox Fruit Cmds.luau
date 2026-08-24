@@ -46,8 +46,9 @@ local Shortcuts = {
     ["leo"] = "Tiger",
     ["cdk"] = "Cursed Dual Katana",
     ["kab"] = "Kabucha",
+    ["sc"] = "Soul Cane",
+    ["soul"] = "Soul Cane",
     ["sg"] = "Skull Guitar",
-    ["db"] = "Dark Blade",
     -- Add more as needed
 }
 
@@ -57,14 +58,14 @@ local Shortcuts = {
 local TravelCommands = {["1"]="TravelMain",["2"]="TravelDressrosa",["3"]="TravelZou"}
 
 -- ================================
--- Aimbot / Camlock
+-- Aimbot (standard screen-based)
 -- ================================
 local aimbotEnabled = false
 local aimbotTarget = nil
 local aimbotConnection = nil
-local aimbotRadius = 700 -- default radius
+local aimbotRadius = 300
 
-local function findClosestPlayer()
+local function findClosestPlayerScreen()
     local closest = nil
     local shortestDist = math.huge
     local viewportSize = Camera.ViewportSize
@@ -75,9 +76,7 @@ local function findClosestPlayer()
             local hrp = player.Character.HumanoidRootPart
             local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
             if onScreen then
-                -- Check distance from player to center of screen
                 local screenDist = (center - Vector2.new(pos.X, pos.Y)).Magnitude
-                -- Check actual world distance
                 local worldDist = (hrp.Position - Camera.CFrame.Position).Magnitude
                 if screenDist < shortestDist and worldDist <= aimbotRadius then
                     shortestDist = screenDist
@@ -90,17 +89,11 @@ local function findClosestPlayer()
 end
 
 local function startAimbot(radius)
-    if radius then
-        aimbotRadius = radius
-    end
-
-    if aimbotConnection then
-        aimbotConnection:Disconnect()
-        aimbotConnection = nil
-    end
+    if radius then aimbotRadius = radius end
+    if aimbotConnection then aimbotConnection:Disconnect(); aimbotConnection = nil end
 
     aimbotEnabled = true
-    aimbotTarget = findClosestPlayer()
+    aimbotTarget = findClosestPlayerScreen()
 
     if not aimbotTarget then
         notify("Aimbot", "❌ No target found within " .. aimbotRadius .. " studs", 5)
@@ -112,10 +105,8 @@ local function startAimbot(radius)
 
     aimbotConnection = RunService.RenderStepped:Connect(function()
         if not aimbotEnabled then return end
-
-        -- Refresh target if current one is dead or gone
         if not aimbotTarget or not aimbotTarget.Character or not aimbotTarget.Character:FindFirstChild("HumanoidRootPart") then
-            aimbotTarget = findClosestPlayer()
+            aimbotTarget = findClosestPlayerScreen()
             if not aimbotTarget then
                 notify("Aimbot", "❌ Lost target", 5)
                 aimbotEnabled = false
@@ -123,7 +114,6 @@ local function startAimbot(radius)
             end
             notify("Aimbot", "✅ New target: " .. aimbotTarget.Name, 5)
         end
-
         local hrp = aimbotTarget.Character.HumanoidRootPart
         if hrp then
             Camera.CFrame = CFrame.new(Camera.CFrame.Position, hrp.Position)
@@ -138,8 +128,134 @@ local function stopAimbot()
         aimbotConnection:Disconnect()
         aimbotConnection = nil
     end
-    notify("Aimbot", "✅ Aimbot disabled", 5)
 end
+
+-- ================================
+-- Aimbot (distance-based for /opfun)
+-- ================================
+local opAimbotEnabled = false
+local opAimbotTarget = nil
+local opAimbotConnection = nil
+
+local function findClosestPlayerDistance()
+    local closest = nil
+    local shortestDist = math.huge
+    local myPos = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not myPos then return nil end
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local hrp = player.Character.HumanoidRootPart
+            local dist = (hrp.Position - myPos.Position).Magnitude
+            if dist < shortestDist then
+                shortestDist = dist
+                closest = player
+            end
+        end
+    end
+    return closest
+end
+
+local function startOpAimbot()
+    if opAimbotConnection then opAimbotConnection:Disconnect(); opAimbotConnection = nil end
+    opAimbotEnabled = true
+    opAimbotTarget = findClosestPlayerDistance()
+    if not opAimbotTarget then
+        notify("OpFun", "❌ No players nearby", 5)
+        opAimbotEnabled = false
+        return
+    end
+    notify("OpFun", "✅ Locked onto " .. opAimbotTarget.Name, 5)
+
+    opAimbotConnection = RunService.RenderStepped:Connect(function()
+        if not opAimbotEnabled then return end
+        if not opAimbotTarget or not opAimbotTarget.Character or not opAimbotTarget.Character:FindFirstChild("HumanoidRootPart") then
+            opAimbotTarget = findClosestPlayerDistance()
+            if not opAimbotTarget then
+                notify("OpFun", "❌ Lost target", 5)
+                opAimbotEnabled = false
+                return
+            end
+            notify("OpFun", "✅ New target: " .. opAimbotTarget.Name, 5)
+        end
+        local hrp = opAimbotTarget.Character.HumanoidRootPart
+        if hrp then
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, hrp.Position)
+        end
+    end)
+end
+
+local function stopOpAimbot()
+    opAimbotEnabled = false
+    opAimbotTarget = nil
+    if opAimbotConnection then
+        opAimbotConnection:Disconnect()
+        opAimbotConnection = nil
+    end
+end
+
+-- ================================
+-- OpFun Attribute Loop
+-- ================================
+local opFunLoopConnection = nil
+local opFunActive = false
+
+local function applyOpFunAttributes()
+    local char = LocalPlayer.Character
+    if not char then return end
+
+    -- Set specific attributes
+    local specificAttrs = {
+        DashLength = 250,
+        DodgeBoost = 1000,
+        ObservationRange = 10000,
+        SpeedMultiplier = 10,
+        SkyJumpCost = 0,
+        SkyJumpBoost = 6,
+    }
+    for name, value in pairs(specificAttrs) do
+        char:SetAttribute(name, value)
+    end
+
+    -- Set all attributes containing "Cooldown" to 0 (case-insensitive)
+    local allAttrs = char:GetAttributes()
+    for name, _ in pairs(allAttrs) do
+        if string.lower(name):find("cooldown") then
+            char:SetAttribute(name, 0)
+        end
+    end
+end
+
+local function startOpFunLoop()
+    if opFunLoopConnection then
+        opFunLoopConnection:Disconnect()
+        opFunLoopConnection = nil
+    end
+    opFunActive = true
+    applyOpFunAttributes() -- apply immediately
+    opFunLoopConnection = RunService.Heartbeat:Connect(function()
+        if not opFunActive then return end
+        applyOpFunAttributes()
+    end)
+    notify("OpFun", "✅ Attribute loop started", 5)
+end
+
+local function stopOpFunLoop()
+    opFunActive = false
+    if opFunLoopConnection then
+        opFunLoopConnection:Disconnect()
+        opFunLoopConnection = nil
+    end
+    notify("OpFun", "✅ Attribute loop stopped", 5)
+end
+
+-- Respawn handler to reapply attributes on new character
+LocalPlayer.CharacterAdded:Connect(function()
+    if opFunActive then
+        task.wait(0.5) -- wait for humanoid
+        applyOpFunAttributes()
+    end
+end)
 
 -- ================================
 -- Commands
@@ -150,14 +266,9 @@ local function handleItem(itemName)
         notify("Item", "❌ Please specify a weapon or fruit name", 5)
         return
     end
-
-    -- Check shortcuts first
     local shortcutName = Shortcuts[itemName:lower()]
-    if shortcutName then
-        itemName = shortcutName
-    end
+    if shortcutName then itemName = shortcutName end
 
-    -- Check if it's a fruit
     for name, remoteName in pairs(FruitMapping) do
         if name:lower() == itemName:lower() then
             local success, result = pcall(function()
@@ -168,7 +279,6 @@ local function handleItem(itemName)
         end
     end
 
-    -- If not a fruit, treat as weapon (LoadItem)
     local success, result = pcall(function()
         return CommF_:InvokeServer("LoadItem", itemName, nil)
     end)
@@ -220,6 +330,22 @@ local function handleAimbot(arg)
     end
 end
 
+local function handleOpFun()
+    -- Stop any existing aimbot (standard)
+    stopAimbot()
+    -- Start distance-based aimbot
+    startOpAimbot()
+    -- Start attribute loop
+    startOpFunLoop()
+    notify("OpFun", "✅ OpFun mode activated (aimbot + attribute loop)", 5)
+end
+
+local function handleUnOpFun()
+    stopOpAimbot()
+    stopOpFunLoop()
+    notify("OpFun", "✅ OpFun mode deactivated", 5)
+end
+
 -- ================================
 -- Command Table
 -- ================================
@@ -232,7 +358,9 @@ local Commands = {
     ["/pirate"] = function() setTeam("Pirates") end,
     ["/marine"] = function() setTeam("Marines") end,
     ["/aimbot"] = handleAimbot,
-    ["/unaimbot"] = stopAimbot,
+    ["/unaimbot"] = function() stopAimbot(); notify("Aimbot", "✅ Aimbot disabled", 5) end,
+    ["/opfun"] = handleOpFun,
+    ["/unopfun"] = handleUnOpFun,
 }
 
 PlayerChatted:Connect(function(msg)
@@ -243,3 +371,5 @@ PlayerChatted:Connect(function(msg)
         Commands[cmd](arg)
     end
 end)
+
+notify("✅ Loaded", "Commands: /i, /tt, /aimbot, /unaimbot, /opfun, /unopfun, /sea1-3, /pirate, /marine", 5)
