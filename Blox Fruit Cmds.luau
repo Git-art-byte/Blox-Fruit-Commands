@@ -40,7 +40,6 @@ local FruitMapping = {
 
 -- ================================
 -- Shortcuts for /i
--- Add any alias here : "shortcut" = "actual_name"
 -- ================================
 local Shortcuts = {
     ["leo"] = "Tiger",
@@ -49,7 +48,6 @@ local Shortcuts = {
     ["sc"] = "Soul Cane",
     ["soul"] = "Soul Cane",
     ["sg"] = "Skull Guitar",
-    -- Add more as needed
 }
 
 -- ================================
@@ -131,11 +129,25 @@ local function stopAimbot()
 end
 
 -- ================================
--- Aimbot (distance-based for /opfun)
+-- Aimbot (distance-based for /opfun) with optional target
 -- ================================
 local opAimbotEnabled = false
 local opAimbotTarget = nil
 local opAimbotConnection = nil
+local opAimbotSearchString = nil  -- store for re-acquisition
+
+local function findPlayerByString(search)
+    if not search or search == "" then return nil end
+    local lower = search:lower()
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer then
+            if plr.Name:lower():find(lower, 1, true) or plr.DisplayName:lower():find(lower, 1, true) then
+                return plr
+            end
+        end
+    end
+    return nil
+end
 
 local function findClosestPlayerDistance()
     local closest = nil
@@ -156,27 +168,53 @@ local function findClosestPlayerDistance()
     return closest
 end
 
-local function startOpAimbot()
+local function getOpTarget()
+    if opAimbotSearchString and opAimbotSearchString ~= "" then
+        -- try to find the specific player
+        local found = findPlayerByString(opAimbotSearchString)
+        if found then return found end
+        -- if not found, keep search string, but return nil
+        return nil
+    else
+        return findClosestPlayerDistance()
+    end
+end
+
+local function startOpAimbot(searchString)
     if opAimbotConnection then opAimbotConnection:Disconnect(); opAimbotConnection = nil end
     opAimbotEnabled = true
-    opAimbotTarget = findClosestPlayerDistance()
+    opAimbotSearchString = searchString and searchString ~= "" and searchString or nil
+    opAimbotTarget = getOpTarget()
+
     if not opAimbotTarget then
-        notify("OpFun", "❌ No players nearby", 5)
+        if opAimbotSearchString then
+            notify("OpFun", "❌ No player found matching '" .. opAimbotSearchString .. "'", 5)
+        else
+            notify("OpFun", "❌ No players nearby", 5)
+        end
         opAimbotEnabled = false
         return
     end
+
     notify("OpFun", "✅ Locked onto " .. opAimbotTarget.Name, 5)
 
     opAimbotConnection = RunService.RenderStepped:Connect(function()
         if not opAimbotEnabled then return end
+        -- Re-acquire if target is invalid
         if not opAimbotTarget or not opAimbotTarget.Character or not opAimbotTarget.Character:FindFirstChild("HumanoidRootPart") then
-            opAimbotTarget = findClosestPlayerDistance()
+            opAimbotTarget = getOpTarget()
             if not opAimbotTarget then
-                notify("OpFun", "❌ Lost target", 5)
-                opAimbotEnabled = false
-                return
+                if opAimbotSearchString then
+                    -- keep trying, but don't spam notifications
+                else
+                    notify("OpFun", "❌ Lost target", 5)
+                    opAimbotEnabled = false
+                    return
+                end
+                return -- exit this frame, will try again next frame
+            else
+                notify("OpFun", "✅ Re-acquired " .. opAimbotTarget.Name, 5)
             end
-            notify("OpFun", "✅ New target: " .. opAimbotTarget.Name, 5)
         end
         local hrp = opAimbotTarget.Character.HumanoidRootPart
         if hrp then
@@ -192,19 +230,39 @@ local function stopOpAimbot()
         opAimbotConnection:Disconnect()
         opAimbotConnection = nil
     end
+    opAimbotSearchString = nil
 end
 
 -- ================================
--- OpFun Attribute Loop
+-- OpFun Attribute Loop + Restoration
 -- ================================
 local opFunLoopConnection = nil
 local opFunActive = false
+local opFunOriginalAttrs = {}
+
+local function storeOriginalAttributes()
+    local char = LocalPlayer.Character
+    if not char then return end
+    opFunOriginalAttrs = {}
+    local allAttrs = char:GetAttributes()
+    for name, value in pairs(allAttrs) do
+        if string.lower(name):find("cooldown") or 
+           name == "DashLength" or name == "DodgeBoost" or 
+           name == "ObservationRange" or name == "SpeedMultiplier" or 
+           name == "SkyJumpCost" or name == "SkyJumpBoost" then
+            opFunOriginalAttrs[name] = value
+        end
+    end
+end
 
 local function applyOpFunAttributes()
     local char = LocalPlayer.Character
     if not char then return end
 
-    -- Set specific attributes
+    if next(opFunOriginalAttrs) == nil then
+        storeOriginalAttributes()
+    end
+
     local specificAttrs = {
         DashLength = 250,
         DodgeBoost = 1000,
@@ -217,7 +275,6 @@ local function applyOpFunAttributes()
         char:SetAttribute(name, value)
     end
 
-    -- Set all attributes containing "Cooldown" to 0 (case-insensitive)
     local allAttrs = char:GetAttributes()
     for name, _ in pairs(allAttrs) do
         if string.lower(name):find("cooldown") then
@@ -226,13 +283,23 @@ local function applyOpFunAttributes()
     end
 end
 
+local function restoreOriginalAttributes()
+    local char = LocalPlayer.Character
+    if not char then return end
+    for name, value in pairs(opFunOriginalAttrs) do
+        char:SetAttribute(name, value)
+    end
+    opFunOriginalAttrs = {}
+end
+
 local function startOpFunLoop()
     if opFunLoopConnection then
         opFunLoopConnection:Disconnect()
         opFunLoopConnection = nil
     end
     opFunActive = true
-    applyOpFunAttributes() -- apply immediately
+    opFunOriginalAttrs = {}
+    applyOpFunAttributes()
     opFunLoopConnection = RunService.Heartbeat:Connect(function()
         if not opFunActive then return end
         applyOpFunAttributes()
@@ -240,19 +307,20 @@ local function startOpFunLoop()
     notify("OpFun", "✅ Attribute loop started", 5)
 end
 
-local function stopOpFunLoop()
+local function stopOpFunLoopAndRestore()
     opFunActive = false
     if opFunLoopConnection then
         opFunLoopConnection:Disconnect()
         opFunLoopConnection = nil
     end
-    notify("OpFun", "✅ Attribute loop stopped", 5)
+    restoreOriginalAttributes()
+    notify("OpFun", "✅ Attributes restored to original values", 5)
 end
 
--- Respawn handler to reapply attributes on new character
 LocalPlayer.CharacterAdded:Connect(function()
     if opFunActive then
-        task.wait(0.5) -- wait for humanoid
+        task.wait(0.5)
+        opFunOriginalAttrs = {}
         applyOpFunAttributes()
     end
 end)
@@ -330,20 +398,31 @@ local function handleAimbot(arg)
     end
 end
 
-local function handleOpFun()
-    -- Stop any existing aimbot (standard)
+local function handleOpFun(arg)
+    -- Stop any existing aimbots
     stopAimbot()
-    -- Start distance-based aimbot
-    startOpAimbot()
-    -- Start attribute loop
-    startOpFunLoop()
-    notify("OpFun", "✅ OpFun mode activated (aimbot + attribute loop)", 5)
+    if opFunActive then
+        stopOpFunLoopAndRestore()
+        stopOpAimbot()
+    end
+
+    -- If arg provided, use as search string
+    local searchString = arg and arg ~= "" and arg or nil
+    startOpAimbot(searchString)
+    if opAimbotEnabled then
+        startOpFunLoop()
+        if searchString then
+            notify("OpFun", "✅ OpFun mode activated (target: " .. searchString .. ")", 5)
+        else
+            notify("OpFun", "✅ OpFun mode activated (closest player)", 5)
+        end
+    end
 end
 
 local function handleUnOpFun()
     stopOpAimbot()
-    stopOpFunLoop()
-    notify("OpFun", "✅ OpFun mode deactivated", 5)
+    stopOpFunLoopAndRestore()
+    notify("OpFun", "✅ OpFun mode deactivated – attributes restored", 5)
 end
 
 -- ================================
@@ -372,4 +451,4 @@ PlayerChatted:Connect(function(msg)
     end
 end)
 
-notify("✅ Loaded", "Commands: /i, /tt, /aimbot, /unaimbot, /opfun, /unopfun, /sea1-3, /pirate, /marine", 5)
+notify("✅ Loaded", "Commands: /i, /tt, /aimbot, /unaimbot, /opfun [target], /unopfun, /sea1-3, /pirate, /marine", 5)
