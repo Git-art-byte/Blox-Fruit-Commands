@@ -3,10 +3,12 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterGui = game:GetService("StarterGui")
 local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
 
 local CommF_ = ReplicatedStorage.Remotes.CommF_
 local LocalPlayer = Players.LocalPlayer
 local PlayerChatted = LocalPlayer.Chatted
+local Camera = workspace.CurrentCamera
 
 -- ================================
 -- Notification
@@ -41,11 +43,11 @@ local FruitMapping = {
 -- Add any alias here : "shortcut" = "actual_name"
 -- ================================
 local Shortcuts = {
-    ["leo" or "Leo"] = "Tiger",   -- because Tiger used to be called Leopard
-    ["cdk" or "Cdk"] = "Cursed Dual Katana",
-    ["kab" or "Kab"] = "Kabucha",
-    ["sc" or "Sc"] = "Soul Cane",
-    ["sg" or "soul" or "Soul" or "Sg"] = "Skull Guitar",
+    ["leo"] = "Tiger",
+    ["cdk"] = "Cursed Dual Katana",
+    ["kab"] = "Kabucha",
+    ["sg"] = "Skull Guitar",
+    ["db"] = "Dark Blade",
     -- Add more as needed
 }
 
@@ -53,6 +55,91 @@ local Shortcuts = {
 -- Travel
 -- ================================
 local TravelCommands = {["1"]="TravelMain",["2"]="TravelDressrosa",["3"]="TravelZou"}
+
+-- ================================
+-- Aimbot / Camlock
+-- ================================
+local aimbotEnabled = false
+local aimbotTarget = nil
+local aimbotConnection = nil
+local aimbotRadius = 300 -- default radius
+
+local function findClosestPlayer()
+    local closest = nil
+    local shortestDist = math.huge
+    local viewportSize = Camera.ViewportSize
+    local center = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local hrp = player.Character.HumanoidRootPart
+            local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+            if onScreen then
+                -- Check distance from player to center of screen
+                local screenDist = (center - Vector2.new(pos.X, pos.Y)).Magnitude
+                -- Check actual world distance
+                local worldDist = (hrp.Position - Camera.CFrame.Position).Magnitude
+                if screenDist < shortestDist and worldDist <= aimbotRadius then
+                    shortestDist = screenDist
+                    closest = player
+                end
+            end
+        end
+    end
+    return closest
+end
+
+local function startAimbot(radius)
+    if radius then
+        aimbotRadius = radius
+    end
+
+    if aimbotConnection then
+        aimbotConnection:Disconnect()
+        aimbotConnection = nil
+    end
+
+    aimbotEnabled = true
+    aimbotTarget = findClosestPlayer()
+
+    if not aimbotTarget then
+        notify("Aimbot", "❌ No target found within " .. aimbotRadius .. " studs", 5)
+        aimbotEnabled = false
+        return
+    end
+
+    notify("Aimbot", "✅ Locked onto " .. aimbotTarget.Name .. " (radius: " .. aimbotRadius .. ")", 5)
+
+    aimbotConnection = RunService.RenderStepped:Connect(function()
+        if not aimbotEnabled then return end
+
+        -- Refresh target if current one is dead or gone
+        if not aimbotTarget or not aimbotTarget.Character or not aimbotTarget.Character:FindFirstChild("HumanoidRootPart") then
+            aimbotTarget = findClosestPlayer()
+            if not aimbotTarget then
+                notify("Aimbot", "❌ Lost target", 5)
+                aimbotEnabled = false
+                return
+            end
+            notify("Aimbot", "✅ New target: " .. aimbotTarget.Name, 5)
+        end
+
+        local hrp = aimbotTarget.Character.HumanoidRootPart
+        if hrp then
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, hrp.Position)
+        end
+    end)
+end
+
+local function stopAimbot()
+    aimbotEnabled = false
+    aimbotTarget = nil
+    if aimbotConnection then
+        aimbotConnection:Disconnect()
+        aimbotConnection = nil
+    end
+    notify("Aimbot", "✅ Aimbot disabled", 5)
+end
 
 -- ================================
 -- Commands
@@ -119,6 +206,20 @@ local function setTeam(teamName)
     notify("Team", success and "✅ Joined "..team or "❌ "..tostring(result),5)
 end
 
+local function handleAimbot(arg)
+    if arg and arg ~= "" then
+        local radius = tonumber(arg)
+        if radius and radius > 0 then
+            startAimbot(radius)
+        else
+            notify("Aimbot", "❌ Invalid radius. Using default: " .. aimbotRadius, 5)
+            startAimbot(aimbotRadius)
+        end
+    else
+        startAimbot(aimbotRadius)
+    end
+end
+
 -- ================================
 -- Command Table
 -- ================================
@@ -130,6 +231,8 @@ local Commands = {
     ["/sea3"] = function() travelToSea("3") end,
     ["/pirate"] = function() setTeam("Pirates") end,
     ["/marine"] = function() setTeam("Marines") end,
+    ["/aimbot"] = handleAimbot,
+    ["/unaimbot"] = stopAimbot,
 }
 
 PlayerChatted:Connect(function(msg)
