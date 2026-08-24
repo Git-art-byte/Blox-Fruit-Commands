@@ -1,4 +1,6 @@
--- Services
+-- CMD.luau
+-- Core command logic, shared functions, and variable storage
+
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterGui = game:GetService("StarterGui")
@@ -11,7 +13,7 @@ local PlayerChatted = LocalPlayer.Chatted
 local Camera = workspace.CurrentCamera
 
 -- ================================
--- Notification
+-- Notification (for GUI feedback)
 -- ================================
 local function notify(title, text, duration)
     pcall(function()
@@ -23,8 +25,11 @@ local function notify(title, text, duration)
     end)
 end
 
+-- Expose notification to GUI
+_G.Notify = notify
+
 -- ================================
--- Fruit Mapping (for /i)
+-- Fruit Mapping, Shortcuts, Travel
 -- ================================
 local FruitMapping = {
     ["Rocket"]="Rocket-Rocket", ["Spin"]="Spin-Spin", ["Blade"]="Blade-Blade", ["Spring"]="Spring-Spring", 
@@ -37,104 +42,64 @@ local FruitMapping = {
     ["Control"]="Control-Control", ["Gas"]="Gas-Gas", ["Spirit"]="Spirit-Spirit", ["Tiger"]="Tiger-Tiger", 
     ["Yeti"]="Yeti-Yeti", ["Kitsune"]="Kitsune-Kitsune", ["Dragon"]="Dragon-Dragon", ["Buddha"]="Buddha-Buddha"
 }
-
--- ================================
--- Shortcuts for /i
--- ================================
 local Shortcuts = {
-    ["leo"] = "Tiger",
-    ["cdk"] = "Cursed Dual Katana",
-    ["kab"] = "Kabucha",
-    ["sc"] = "Soul Cane",
-    ["soul"] = "Soul Cane",
-    ["sg"] = "Skull Guitar",
+    ["leo"] = "Tiger", ["cdk"] = "Cursed Dual Katana", ["kab"] = "Kabucha",
+    ["sc"] = "Soul Cane", ["soul"] = "Soul Cane", ["sg"] = "Skull Guitar",
 }
-
--- ================================
--- Travel
--- ================================
 local TravelCommands = {["1"]="TravelMain",["2"]="TravelDressrosa",["3"]="TravelZou"}
 
 -- ================================
--- Aimbot (standard screen-based)
+-- Aimbot (standard)
 -- ================================
-local aimbotEnabled = false
-local aimbotTarget = nil
-local aimbotConnection = nil
-local aimbotRadius = 300
-
+local aimbotEnabled, aimbotTarget, aimbotConnection, aimbotRadius = false, nil, nil, 300
 local function findClosestPlayerScreen()
-    local closest = nil
-    local shortestDist = math.huge
-    local viewportSize = Camera.ViewportSize
-    local center = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
-
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            local hrp = player.Character.HumanoidRootPart
+    local closest, shortestDist = nil, math.huge
+    local viewportSize, center = Camera.ViewportSize, Camera.ViewportSize / 2
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+            local hrp = plr.Character.HumanoidRootPart
             local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
             if onScreen then
                 local screenDist = (center - Vector2.new(pos.X, pos.Y)).Magnitude
                 local worldDist = (hrp.Position - Camera.CFrame.Position).Magnitude
                 if screenDist < shortestDist and worldDist <= aimbotRadius then
-                    shortestDist = screenDist
-                    closest = player
+                    shortestDist, closest = screenDist, plr
                 end
             end
         end
     end
     return closest
 end
-
 local function startAimbot(radius)
     if radius then aimbotRadius = radius end
     if aimbotConnection then aimbotConnection:Disconnect(); aimbotConnection = nil end
-
     aimbotEnabled = true
     aimbotTarget = findClosestPlayerScreen()
-
-    if not aimbotTarget then
-        notify("Aimbot", "❌ No target found within " .. aimbotRadius .. " studs", 5)
-        aimbotEnabled = false
-        return
-    end
-
-    notify("Aimbot", "✅ Locked onto " .. aimbotTarget.Name .. " (radius: " .. aimbotRadius .. ")", 5)
-
+    if not aimbotTarget then notify("Aimbot", "❌ No target", 5) aimbotEnabled = false return end
+    notify("Aimbot", "✅ Locked " .. aimbotTarget.Name, 5)
     aimbotConnection = RunService.RenderStepped:Connect(function()
         if not aimbotEnabled then return end
         if not aimbotTarget or not aimbotTarget.Character or not aimbotTarget.Character:FindFirstChild("HumanoidRootPart") then
             aimbotTarget = findClosestPlayerScreen()
-            if not aimbotTarget then
-                notify("Aimbot", "❌ Lost target", 5)
-                aimbotEnabled = false
-                return
-            end
-            notify("Aimbot", "✅ New target: " .. aimbotTarget.Name, 5)
+            if not aimbotTarget then notify("Aimbot", "❌ Lost target", 5) aimbotEnabled = false return end
+            notify("Aimbot", "✅ New target " .. aimbotTarget.Name, 5)
         end
         local hrp = aimbotTarget.Character.HumanoidRootPart
-        if hrp then
-            Camera.CFrame = CFrame.new(Camera.CFrame.Position, hrp.Position)
-        end
+        if hrp then Camera.CFrame = CFrame.new(Camera.CFrame.Position, hrp.Position) end
     end)
 end
-
 local function stopAimbot()
-    aimbotEnabled = false
-    aimbotTarget = nil
-    if aimbotConnection then
-        aimbotConnection:Disconnect()
-        aimbotConnection = nil
-    end
+    aimbotEnabled = false; aimbotTarget = nil
+    if aimbotConnection then aimbotConnection:Disconnect(); aimbotConnection = nil end
 end
+_G.StartAimbot = startAimbot
+_G.StopAimbot = stopAimbot
 
 -- ================================
--- Aimbot (distance-based for /opfun) with optional target
+-- OpFun Aimbot + Attributes + Target storage
 -- ================================
-local opAimbotEnabled = false
-local opAimbotTarget = nil
-local opAimbotConnection = nil
-local opAimbotSearchString = nil  -- store for re-acquisition
+local opAimbotEnabled, opAimbotTarget, opAimbotConnection, opAimbotSearchString = false, nil, nil, nil
+_G.OpFunTarget = nil  -- store the current opfun target player
 
 local function findPlayerByString(search)
     if not search or search == "" then return nil end
@@ -148,307 +113,193 @@ local function findPlayerByString(search)
     end
     return nil
 end
-
 local function findClosestPlayerDistance()
-    local closest = nil
-    local shortestDist = math.huge
+    local closest, shortestDist = nil, math.huge
     local myPos = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     if not myPos then return nil end
-
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            local hrp = player.Character.HumanoidRootPart
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+            local hrp = plr.Character.HumanoidRootPart
             local dist = (hrp.Position - myPos.Position).Magnitude
-            if dist < shortestDist then
-                shortestDist = dist
-                closest = player
-            end
+            if dist < shortestDist then shortestDist, closest = dist, plr end
         end
     end
     return closest
 end
-
 local function getOpTarget()
     if opAimbotSearchString and opAimbotSearchString ~= "" then
-        -- try to find the specific player
-        local found = findPlayerByString(opAimbotSearchString)
-        if found then return found end
-        -- if not found, keep search string, but return nil
-        return nil
+        return findPlayerByString(opAimbotSearchString)
     else
         return findClosestPlayerDistance()
     end
 end
-
 local function startOpAimbot(searchString)
     if opAimbotConnection then opAimbotConnection:Disconnect(); opAimbotConnection = nil end
     opAimbotEnabled = true
-    opAimbotSearchString = searchString and searchString ~= "" and searchString or nil
+    opAimbotSearchString = searchString or nil
     opAimbotTarget = getOpTarget()
-
     if not opAimbotTarget then
-        if opAimbotSearchString then
-            notify("OpFun", "❌ No player found matching '" .. opAimbotSearchString .. "'", 5)
-        else
-            notify("OpFun", "❌ No players nearby", 5)
-        end
+        notify("OpFun", opAimbotSearchString and "❌ No player '"..opAimbotSearchString.."'" or "❌ No players nearby", 5)
         opAimbotEnabled = false
         return
     end
-
-    notify("OpFun", "✅ Locked onto " .. opAimbotTarget.Name, 5)
-
+    _G.OpFunTarget = opAimbotTarget  -- store globally
+    notify("OpFun", "✅ Locked " .. opAimbotTarget.Name, 5)
     opAimbotConnection = RunService.RenderStepped:Connect(function()
         if not opAimbotEnabled then return end
-        -- Re-acquire if target is invalid
         if not opAimbotTarget or not opAimbotTarget.Character or not opAimbotTarget.Character:FindFirstChild("HumanoidRootPart") then
             opAimbotTarget = getOpTarget()
             if not opAimbotTarget then
-                if opAimbotSearchString then
-                    -- keep trying, but don't spam notifications
-                else
-                    notify("OpFun", "❌ Lost target", 5)
-                    opAimbotEnabled = false
-                    return
-                end
-                return -- exit this frame, will try again next frame
-            else
-                notify("OpFun", "✅ Re-acquired " .. opAimbotTarget.Name, 5)
+                if not opAimbotSearchString then notify("OpFun", "❌ Lost target", 5) opAimbotEnabled = false return end
+                return
             end
+            _G.OpFunTarget = opAimbotTarget
+            notify("OpFun", "✅ Re-acquired " .. opAimbotTarget.Name, 5)
         end
         local hrp = opAimbotTarget.Character.HumanoidRootPart
-        if hrp then
-            Camera.CFrame = CFrame.new(Camera.CFrame.Position, hrp.Position)
-        end
+        if hrp then Camera.CFrame = CFrame.new(Camera.CFrame.Position, hrp.Position) end
     end)
 end
-
 local function stopOpAimbot()
-    opAimbotEnabled = false
-    opAimbotTarget = nil
-    if opAimbotConnection then
-        opAimbotConnection:Disconnect()
-        opAimbotConnection = nil
-    end
+    opAimbotEnabled = false; opAimbotTarget = nil; _G.OpFunTarget = nil
+    if opAimbotConnection then opAimbotConnection:Disconnect(); opAimbotConnection = nil end
     opAimbotSearchString = nil
 end
 
--- ================================
--- OpFun Attribute Loop + Restoration
--- ================================
-local opFunLoopConnection = nil
-local opFunActive = false
-local opFunOriginalAttrs = {}
-
+-- OpFun Attribute loop
+local opFunLoopConnection, opFunActive, opFunOriginalAttrs = nil, false, {}
 local function storeOriginalAttributes()
     local char = LocalPlayer.Character
     if not char then return end
     opFunOriginalAttrs = {}
-    local allAttrs = char:GetAttributes()
-    for name, value in pairs(allAttrs) do
-        if string.lower(name):find("cooldown") or 
-           name == "DashLength" or name == "DodgeBoost" or 
-           name == "ObservationRange" or name == "SpeedMultiplier" or 
-           name == "SkyJumpCost" or name == "SkyJumpBoost" then
+    for name, value in pairs(char:GetAttributes()) do
+        if string.lower(name):find("cooldown") or name == "DashLength" or name == "DodgeBoost" or 
+           name == "ObservationRange" or name == "SpeedMultiplier" or name == "SkyJumpCost" or name == "SkyJumpBoost" then
             opFunOriginalAttrs[name] = value
         end
     end
 end
-
 local function applyOpFunAttributes()
     local char = LocalPlayer.Character
     if not char then return end
-
-    if next(opFunOriginalAttrs) == nil then
-        storeOriginalAttributes()
-    end
-
-    local specificAttrs = {
-        DashLength = 250,
-        DodgeBoost = 1000,
-        ObservationRange = 10000,
-        SpeedMultiplier = 10,
-        SkyJumpCost = 0,
-        SkyJumpBoost = 6,
-    }
-    for name, value in pairs(specificAttrs) do
-        char:SetAttribute(name, value)
-    end
-
-    local allAttrs = char:GetAttributes()
-    for name, _ in pairs(allAttrs) do
-        if string.lower(name):find("cooldown") then
-            char:SetAttribute(name, 0)
-        end
+    if next(opFunOriginalAttrs) == nil then storeOriginalAttributes() end
+    local specific = {DashLength=250, DodgeBoost=1000, ObservationRange=10000, SpeedMultiplier=10, SkyJumpCost=0, SkyJumpBoost=6}
+    for name, val in pairs(specific) do char:SetAttribute(name, val) end
+    for name, _ in pairs(char:GetAttributes()) do
+        if string.lower(name):find("cooldown") then char:SetAttribute(name, 0) end
     end
 end
-
 local function restoreOriginalAttributes()
     local char = LocalPlayer.Character
     if not char then return end
-    for name, value in pairs(opFunOriginalAttrs) do
-        char:SetAttribute(name, value)
-    end
+    for name, val in pairs(opFunOriginalAttrs) do char:SetAttribute(name, val) end
     opFunOriginalAttrs = {}
 end
-
 local function startOpFunLoop()
-    if opFunLoopConnection then
-        opFunLoopConnection:Disconnect()
-        opFunLoopConnection = nil
-    end
-    opFunActive = true
-    opFunOriginalAttrs = {}
-    applyOpFunAttributes()
+    if opFunLoopConnection then opFunLoopConnection:Disconnect(); opFunLoopConnection = nil end
+    opFunActive = true; opFunOriginalAttrs = {}; applyOpFunAttributes()
     opFunLoopConnection = RunService.Heartbeat:Connect(function()
-        if not opFunActive then return end
-        applyOpFunAttributes()
+        if not opFunActive then return end; applyOpFunAttributes()
     end)
     notify("OpFun", "✅ Attribute loop started", 5)
 end
-
 local function stopOpFunLoopAndRestore()
-    opFunActive = false
-    if opFunLoopConnection then
-        opFunLoopConnection:Disconnect()
-        opFunLoopConnection = nil
-    end
+    opFunActive = false; if opFunLoopConnection then opFunLoopConnection:Disconnect(); opFunLoopConnection = nil end
     restoreOriginalAttributes()
-    notify("OpFun", "✅ Attributes restored to original values", 5)
+    notify("OpFun", "✅ Attributes restored", 5)
+end
+_G.StartOpFun = function(search)
+    stopAimbot()
+    if opFunActive then stopOpFunLoopAndRestore(); stopOpAimbot() end
+    startOpAimbot(search)
+    if opAimbotEnabled then startOpFunLoop() end
+end
+_G.StopOpFun = function()
+    stopOpAimbot(); stopOpFunLoopAndRestore()
 end
 
-LocalPlayer.CharacterAdded:Connect(function()
-    if opFunActive then
-        task.wait(0.5)
-        opFunOriginalAttrs = {}
-        applyOpFunAttributes()
-    end
-end)
-
 -- ================================
--- Commands
+-- Teleport + Ice Combo
 -- ================================
-
-local function handleItem(itemName)
-    if not itemName or itemName == "" then
-        notify("Item", "❌ Please specify a weapon or fruit name", 5)
+_G.TeleportAndIceCombo = function()
+    local target = _G.OpFunTarget
+    if not target or not target.Character or not target.Character:FindFirstChild("HumanoidRootPart") then
+        notify("Combo", "❌ No valid OpFun target", 5)
         return
     end
-    local shortcutName = Shortcuts[itemName:lower()]
-    if shortcutName then itemName = shortcutName end
+    -- Teleport to target
+    local myChar = LocalPlayer.Character
+    if not myChar or not myChar.PrimaryPart then notify("Combo", "❌ No character", 5) return end
+    local targetPos = target.Character.HumanoidRootPart.Position
+    pcall(function()
+        myChar:SetPrimaryPartCFrame(CFrame.new(targetPos + Vector3.new(0, 3, 0)))
+    end)
+    -- Execute Ice V, C, Z in sequence
+    local function castIce(move)
+        local args = {[1] = move, n = 1}
+        pcall(function()
+            workspace.Characters[LocalPlayer.Name].Humanoid:FindFirstChild(""):InvokeServer(unpack(args, 1, args.n or #args))
+        end)
+    end
+    castIce("V")
+    task.wait(0.3)
+    castIce("C")
+    task.wait(0.3)
+    castIce("Z")
+    notify("Combo", "✅ Teleported & Ice combo executed", 5)
+end
 
-    for name, remoteName in pairs(FruitMapping) do
-        if name:lower() == itemName:lower() then
-            local success, result = pcall(function()
-                return CommF_:InvokeServer("SwitchFruit", remoteName)
-            end)
-            notify("Fruit", success and "✅ Equipped " .. name or "❌ " .. tostring(result), 5)
+-- ================================
+-- Individual Commands (for GUI buttons)
+-- ================================
+_G.LoadItem = function(name)
+    if not name or name == "" then notify("Item", "❌ Specify name", 5) return end
+    local shortcut = Shortcuts[name:lower()]
+    if shortcut then name = shortcut end
+    for fruit, remote in pairs(FruitMapping) do
+        if fruit:lower() == name:lower() then
+            local s, r = pcall(function() return CommF_:InvokeServer("SwitchFruit", remote) end)
+            notify("Fruit", s and "✅ "..fruit or "❌ "..tostring(r), 5)
             return
         end
     end
-
-    local success, result = pcall(function()
-        return CommF_:InvokeServer("LoadItem", itemName, nil)
-    end)
-    notify("Weapon", success and "✅ Loaded " .. itemName or "❌ " .. tostring(result), 5)
+    local s, r = pcall(function() return CommF_:InvokeServer("LoadItem", name, nil) end)
+    notify("Weapon", s and "✅ "..name or "❌ "..tostring(r), 5)
 end
-
-local function equipTitle(titleName)
-    if not titleName or titleName == "" then
-        notify("Title", "❌ Please specify a title name", 5)
-        return
-    end
-    local success, result = pcall(function()
-        return CommF_:InvokeServer("activateTitle", titleName)
-    end)
-    notify("Title", success and "✅ Activated " .. titleName or "❌ " .. tostring(result), 5)
+_G.ActivateTitle = function(name)
+    if not name or name == "" then notify("Title", "❌ Specify title", 5) return end
+    local s, r = pcall(function() return CommF_:InvokeServer("activateTitle", name) end)
+    notify("Title", s and "✅ "..name or "❌ "..tostring(r), 5)
 end
-
-local function travelToSea(seaNumber)
-    local command = TravelCommands[seaNumber]
-    if command then
-        local success, result = pcall(function()
-            return CommF_:InvokeServer(command)
-        end)
-        notify("Travel", success and "✅ Travel to Sea "..seaNumber or "❌ "..tostring(result),5)
-    else
-        notify("Travel","❌ Use /sea1, /sea2, /sea3",5)
-    end
+_G.TravelSea = function(sea)
+    local cmd = TravelCommands[tostring(sea)]
+    if not cmd then notify("Travel", "❌ Use 1,2,3", 5) return end
+    local s, r = pcall(function() return CommF_:InvokeServer(cmd) end)
+    notify("Travel", s and "✅ Sea "..sea or "❌ "..tostring(r), 5)
 end
-
-local function setTeam(teamName)
-    local team = teamName:lower():find("pirate") and "Pirates" or "Marines"
-    local success, result = pcall(function()
-        return CommF_:InvokeServer("SetTeam", team)
-    end)
-    notify("Team", success and "✅ Joined "..team or "❌ "..tostring(result),5)
-end
-
-local function handleAimbot(arg)
-    if arg and arg ~= "" then
-        local radius = tonumber(arg)
-        if radius and radius > 0 then
-            startAimbot(radius)
-        else
-            notify("Aimbot", "❌ Invalid radius. Using default: " .. aimbotRadius, 5)
-            startAimbot(aimbotRadius)
-        end
-    else
-        startAimbot(aimbotRadius)
-    end
-end
-
-local function handleOpFun(arg)
-    -- Stop any existing aimbots
-    stopAimbot()
-    if opFunActive then
-        stopOpFunLoopAndRestore()
-        stopOpAimbot()
-    end
-
-    -- If arg provided, use as search string
-    local searchString = arg and arg ~= "" and arg or nil
-    startOpAimbot(searchString)
-    if opAimbotEnabled then
-        startOpFunLoop()
-        if searchString then
-            notify("OpFun", "✅ OpFun mode activated (target: " .. searchString .. ")", 5)
-        else
-            notify("OpFun", "✅ OpFun mode activated (closest player)", 5)
-        end
-    end
-end
-
-local function handleUnOpFun()
-    stopOpAimbot()
-    stopOpFunLoopAndRestore()
-    notify("OpFun", "✅ OpFun mode deactivated – attributes restored", 5)
+_G.SetTeam = function(team)
+    local t = team:lower():find("pirate") and "Pirates" or "Marines"
+    local s, r = pcall(function() return CommF_:InvokeServer("SetTeam", t) end)
+    notify("Team", s and "✅ "..t or "❌ "..tostring(r), 5)
 end
 
 -- ================================
--- Command Table
+-- Chat Listener (still works)
 -- ================================
-local Commands = {
-    ["/i"] = handleItem,
-    ["/tt"] = equipTitle,
-    ["/sea1"] = function() travelToSea("1") end,
-    ["/sea2"] = function() travelToSea("2") end,
-    ["/sea3"] = function() travelToSea("3") end,
-    ["/pirate"] = function() setTeam("Pirates") end,
-    ["/marine"] = function() setTeam("Marines") end,
-    ["/aimbot"] = handleAimbot,
-    ["/unaimbot"] = function() stopAimbot(); notify("Aimbot", "✅ Aimbot disabled", 5) end,
-    ["/opfun"] = handleOpFun,
-    ["/unopfun"] = handleUnOpFun,
-}
-
 PlayerChatted:Connect(function(msg)
     local split = msg:split(" ")
     local cmd = split[1]:lower()
     local arg = table.concat(split, " ", 2)
-    if Commands[cmd] then
-        Commands[cmd](arg)
+    if cmd == "/i" then _G.LoadItem(arg)
+    elseif cmd == "/t" then _G.ActivateTitle(arg)
+    elseif cmd == "/sea1" then _G.TravelSea(1)
+    elseif cmd == "/sea2" then _G.TravelSea(2)
+    elseif cmd == "/sea3" then _G.TravelSea(3)
+    elseif cmd == "/pirate" then _G.SetTeam("Pirates")
+    elseif cmd == "/marine" then _G.SetTeam("Marines")
+    elseif cmd == "/aimbot" then _G.StartAimbot(tonumber(arg) or 300)
+    elseif cmd == "/unaimbot" then _G.StopAimbot()
+    elseif cmd == "/opfun" then _G.StartOpFun(arg)
+    elseif cmd == "/unopfun" then _G.StopOpFun()
     end
 end)
-
-notify("✅ Loaded", "Commands: /i, /tt, /aimbot, /unaimbot, /opfun [target], /unopfun, /sea1-3, /pirate, /marine", 5)
