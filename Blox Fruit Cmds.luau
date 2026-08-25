@@ -56,12 +56,148 @@ local Shortcuts = {
 local TravelCommands = {["1"]="TravelMain",["2"]="TravelDressrosa",["3"]="TravelZou"}
 
 -- ================================
--- Aimbot (standard screen-based)
+-- Aimbot (standard screen-based with optional specific target)
 -- ================================
 local aimbotEnabled = false
-local aimbotTarget = nil
 local aimbotConnection = nil
 local aimbotRadius = 300
+local aimbotTargetRef = nil      -- can be a player object or a part (dummy HRP)
+local aimbotTargetIdentifier = nil -- string used to re-acquire
+
+-- Find a dummy by name in workspace.Enemies
+local function findDummy(identifier)
+    identifier = identifier:lower()
+    local enemies = workspace:FindFirstChild("Enemies")
+    if not enemies then return nil end
+    for _, model in ipairs(enemies:GetChildren()) do
+        if model:IsA("Model") and model.Name:lower():find(identifier) then
+            local hrp = model:FindFirstChild("HumanoidRootPart")
+            if hrp then return hrp end
+        end
+    end
+    return nil
+end
+
+-- Find a player by name or display name (partial match)
+local function findPlayer(identifier)
+    identifier = identifier:lower()
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer then
+            if plr.Name:lower():find(identifier, 1, true) or plr.DisplayName:lower():find(identifier, 1, true) then
+                return plr
+            end
+        end
+    end
+    return nil
+end
+
+-- Resolve an identifier: returns { type = "player", object = player } or { type = "dummy", part = hrp }
+local function resolveTarget(identifier)
+    if not identifier or identifier == "" then return nil end
+    local lower = identifier:lower()
+    -- Check if it's a dummy
+    if lower:find("dummy") then
+        local hrp = findDummy(lower)
+        if hrp then return { type = "dummy", object = hrp } end
+    end
+    -- Otherwise, try to find a player
+    local plr = findPlayer(identifier)
+    if plr then return { type = "player", object = plr } end
+    return nil
+end
+
+-- Get the current target's HRP or part
+local function getTargetPosition()
+    if not aimbotTargetRef then return nil end
+    if aimbotTargetRef.type == "player" then
+        local plr = aimbotTargetRef.object
+        if plr and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+            return plr.Character.HumanoidRootPart
+        end
+    elseif aimbotTargetRef.type == "dummy" then
+        local part = aimbotTargetRef.object
+        if part and part.Parent then
+            return part
+        end
+    end
+    return nil
+end
+
+-- Re-acquire target if it's invalid or lost
+local function refreshTarget()
+    if not aimbotTargetIdentifier then return nil end
+    local resolved = resolveTarget(aimbotTargetIdentifier)
+    if resolved then
+        aimbotTargetRef = resolved
+        return true
+    end
+    return false
+end
+
+-- Main aimbot start
+local function startAimbot(param)
+    if aimbotConnection then aimbotConnection:Disconnect(); aimbotConnection = nil end
+
+    -- Determine if param is a number (radius) or string (target)
+    local isNumber = tonumber(param)
+    if isNumber then
+        -- Radius mode
+        aimbotRadius = math.max(isNumber, 1)
+        aimbotTargetIdentifier = nil
+        aimbotTargetRef = nil
+        aimbotEnabled = true
+        notify("Aimbot", "✅ Radius set to " .. aimbotRadius, 5)
+    else
+        -- Target mode
+        local resolved = resolveTarget(param)
+        if not resolved then
+            notify("Aimbot", "❌ No target found for '" .. param .. "'", 5)
+            return
+        end
+        aimbotTargetIdentifier = param
+        aimbotTargetRef = resolved
+        aimbotRadius = 999999 -- effectively unlimited
+        aimbotEnabled = true
+        notify("Aimbot", "✅ Locked onto " .. (resolved.type == "player" and resolved.object.Name or "Dummy"), 5)
+    end
+
+    -- If no specific target, we'll use the screen-based closest target
+    aimbotConnection = RunService.RenderStepped:Connect(function()
+        if not aimbotEnabled then return end
+
+        local targetPart = nil
+        if aimbotTargetRef then
+            -- Specific target
+            targetPart = getTargetPosition()
+            if not targetPart then
+                -- Try to re-acquire
+                if refreshTarget() then
+                    targetPart = getTargetPosition()
+                end
+                if not targetPart then
+                    -- If still lost and it was a player, keep trying silently; if dummy, maybe stop?
+                    if aimbotTargetRef and aimbotTargetRef.type == "dummy" then
+                        -- dummy may have been removed, stop aimbot
+                        notify("Aimbot", "❌ Dummy lost", 5)
+                        stopAimbot()
+                        return
+                    end
+                    return -- keep trying next frame
+                end
+            end
+        else
+            -- No specific target: use screen-based closest (with radius)
+            local closest = findClosestPlayerScreen()
+            if closest then
+                targetPart = closest.Character and closest.Character:FindFirstChild("HumanoidRootPart")
+            end
+        end
+
+        if targetPart then
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, targetPart.Position)
+        end
+    end)
+end
 
 local function findClosestPlayerScreen()
     local closest = nil
@@ -86,42 +222,10 @@ local function findClosestPlayerScreen()
     return closest
 end
 
-local function startAimbot(radius)
-    if radius then aimbotRadius = radius end
-    if aimbotConnection then aimbotConnection:Disconnect(); aimbotConnection = nil end
-
-    aimbotEnabled = true
-    aimbotTarget = findClosestPlayerScreen()
-
-    if not aimbotTarget then
-        notify("Aimbot", "❌ No target found within " .. aimbotRadius .. " studs", 5)
-        aimbotEnabled = false
-        return
-    end
-
-    notify("Aimbot", "✅ Locked onto " .. aimbotTarget.Name .. " (radius: " .. aimbotRadius .. ")", 5)
-
-    aimbotConnection = RunService.RenderStepped:Connect(function()
-        if not aimbotEnabled then return end
-        if not aimbotTarget or not aimbotTarget.Character or not aimbotTarget.Character:FindFirstChild("HumanoidRootPart") then
-            aimbotTarget = findClosestPlayerScreen()
-            if not aimbotTarget then
-                notify("Aimbot", "❌ Lost target", 5)
-                aimbotEnabled = false
-                return
-            end
-            notify("Aimbot", "✅ New target: " .. aimbotTarget.Name, 5)
-        end
-        local hrp = aimbotTarget.Character.HumanoidRootPart
-        if hrp then
-            Camera.CFrame = CFrame.new(Camera.CFrame.Position, hrp.Position)
-        end
-    end)
-end
-
 local function stopAimbot()
     aimbotEnabled = false
-    aimbotTarget = nil
+    aimbotTargetRef = nil
+    aimbotTargetIdentifier = nil
     if aimbotConnection then
         aimbotConnection:Disconnect()
         aimbotConnection = nil
@@ -129,12 +233,12 @@ local function stopAimbot()
 end
 
 -- ================================
--- Aimbot (distance-based for /opfun) with optional target
+-- Aimbot (distance-based for /opfun) with optional target (unchanged)
 -- ================================
 local opAimbotEnabled = false
 local opAimbotTarget = nil
 local opAimbotConnection = nil
-local opAimbotSearchString = nil  -- store for re-acquisition
+local opAimbotSearchString = nil
 
 local function findPlayerByString(search)
     if not search or search == "" then return nil end
@@ -170,11 +274,7 @@ end
 
 local function getOpTarget()
     if opAimbotSearchString and opAimbotSearchString ~= "" then
-        -- try to find the specific player
-        local found = findPlayerByString(opAimbotSearchString)
-        if found then return found end
-        -- if not found, keep search string, but return nil
-        return nil
+        return findPlayerByString(opAimbotSearchString)
     else
         return findClosestPlayerDistance()
     end
@@ -200,18 +300,16 @@ local function startOpAimbot(searchString)
 
     opAimbotConnection = RunService.RenderStepped:Connect(function()
         if not opAimbotEnabled then return end
-        -- Re-acquire if target is invalid
         if not opAimbotTarget or not opAimbotTarget.Character or not opAimbotTarget.Character:FindFirstChild("HumanoidRootPart") then
             opAimbotTarget = getOpTarget()
             if not opAimbotTarget then
                 if opAimbotSearchString then
-                    -- keep trying, but don't spam notifications
+                    return
                 else
                     notify("OpFun", "❌ Lost target", 5)
                     opAimbotEnabled = false
                     return
                 end
-                return -- exit this frame, will try again next frame
             else
                 notify("OpFun", "✅ Re-acquired " .. opAimbotTarget.Name, 5)
             end
@@ -234,7 +332,7 @@ local function stopOpAimbot()
 end
 
 -- ================================
--- OpFun Attribute Loop + Restoration
+-- OpFun Attribute Loop + Restoration (unchanged)
 -- ================================
 local opFunLoopConnection = nil
 local opFunActive = false
@@ -386,14 +484,16 @@ end
 
 local function handleAimbot(arg)
     if arg and arg ~= "" then
+        -- Check if arg is a number (radius)
         local radius = tonumber(arg)
         if radius and radius > 0 then
             startAimbot(radius)
         else
-            notify("Aimbot", "❌ Invalid radius. Using default: " .. aimbotRadius, 5)
-            startAimbot(aimbotRadius)
+            -- Treat as target identifier
+            startAimbot(arg)
         end
     else
+        -- No argument: use default radius
         startAimbot(aimbotRadius)
     end
 end
@@ -406,7 +506,6 @@ local function handleOpFun(arg)
         stopOpAimbot()
     end
 
-    -- If arg provided, use as search string
     local searchString = arg and arg ~= "" and arg or nil
     startOpAimbot(searchString)
     if opAimbotEnabled then
@@ -451,4 +550,4 @@ PlayerChatted:Connect(function(msg)
     end
 end)
 
-notify("✅ Loaded", "Commands: /i, /tt, /aimbot, /unaimbot, /opfun [target], /unopfun, /sea1-3, /pirate, /marine", 5)
+notify("✅ Loaded", "Commands: /i, /tt, /aimbot [radius|target], /unaimbot, /opfun [target], /unopfun, /sea1-3, /pirate, /marine", 5)
