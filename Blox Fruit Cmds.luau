@@ -39,6 +39,14 @@ local FruitMapping = {
 }
 
 -- ================================
+-- Fighting Styles (for /acb)
+-- ================================
+local FightingStyles = {
+    ["Godhuman"] = "BuyGodhuman",
+    -- add more if needed
+}
+
+-- ================================
 -- Shortcuts for /i
 -- ================================
 local Shortcuts = {
@@ -61,10 +69,9 @@ local TravelCommands = {["1"]="TravelMain",["2"]="TravelDressrosa",["3"]="Travel
 local aimbotEnabled = false
 local aimbotConnection = nil
 local aimbotRadius = 300
-local aimbotTargetRef = nil      -- can be a player object or a part (dummy HRP)
-local aimbotTargetIdentifier = nil -- string used to re-acquire
+local aimbotTargetRef = nil
+local aimbotTargetIdentifier = nil
 
--- Find a dummy by name in workspace.Enemies
 local function findDummy(identifier)
     identifier = identifier:lower()
     local enemies = workspace:FindFirstChild("Enemies")
@@ -78,7 +85,6 @@ local function findDummy(identifier)
     return nil
 end
 
--- Find a player by name or display name (partial match)
 local function findPlayer(identifier)
     identifier = identifier:lower()
     for _, plr in ipairs(Players:GetPlayers()) do
@@ -91,22 +97,18 @@ local function findPlayer(identifier)
     return nil
 end
 
--- Resolve an identifier: returns { type = "player", object = player } or { type = "dummy", part = hrp }
 local function resolveTarget(identifier)
     if not identifier or identifier == "" then return nil end
     local lower = identifier:lower()
-    -- Check if it's a dummy
     if lower:find("dummy") then
         local hrp = findDummy(lower)
         if hrp then return { type = "dummy", object = hrp } end
     end
-    -- Otherwise, try to find a player
     local plr = findPlayer(identifier)
     if plr then return { type = "player", object = plr } end
     return nil
 end
 
--- Get the current target's HRP or part
 local function getTargetPosition()
     if not aimbotTargetRef then return nil end
     if aimbotTargetRef.type == "player" then
@@ -123,7 +125,6 @@ local function getTargetPosition()
     return nil
 end
 
--- Re-acquire target if it's invalid or lost
 local function refreshTarget()
     if not aimbotTargetIdentifier then return nil end
     local resolved = resolveTarget(aimbotTargetIdentifier)
@@ -134,21 +135,16 @@ local function refreshTarget()
     return false
 end
 
--- Main aimbot start
 local function startAimbot(param)
     if aimbotConnection then aimbotConnection:Disconnect(); aimbotConnection = nil end
-
-    -- Determine if param is a number (radius) or string (target)
     local isNumber = tonumber(param)
     if isNumber then
-        -- Radius mode
         aimbotRadius = math.max(isNumber, 1)
         aimbotTargetIdentifier = nil
         aimbotTargetRef = nil
         aimbotEnabled = true
         notify("Aimbot", "✅ Radius set to " .. aimbotRadius, 5)
     else
-        -- Target mode
         local resolved = resolveTarget(param)
         if not resolved then
             notify("Aimbot", "❌ No target found for '" .. param .. "'", 5)
@@ -156,43 +152,35 @@ local function startAimbot(param)
         end
         aimbotTargetIdentifier = param
         aimbotTargetRef = resolved
-        aimbotRadius = 999999 -- effectively unlimited
+        aimbotRadius = 999999
         aimbotEnabled = true
         notify("Aimbot", "✅ Locked onto " .. (resolved.type == "player" and resolved.object.Name or "Dummy"), 5)
     end
 
-    -- If no specific target, we'll use the screen-based closest target
     aimbotConnection = RunService.RenderStepped:Connect(function()
         if not aimbotEnabled then return end
-
         local targetPart = nil
         if aimbotTargetRef then
-            -- Specific target
             targetPart = getTargetPosition()
             if not targetPart then
-                -- Try to re-acquire
                 if refreshTarget() then
                     targetPart = getTargetPosition()
                 end
                 if not targetPart then
-                    -- If still lost and it was a player, keep trying silently; if dummy, maybe stop?
                     if aimbotTargetRef and aimbotTargetRef.type == "dummy" then
-                        -- dummy may have been removed, stop aimbot
                         notify("Aimbot", "❌ Dummy lost", 5)
                         stopAimbot()
                         return
                     end
-                    return -- keep trying next frame
+                    return
                 end
             end
         else
-            -- No specific target: use screen-based closest (with radius)
             local closest = findClosestPlayerScreen()
             if closest then
                 targetPart = closest.Character and closest.Character:FindFirstChild("HumanoidRootPart")
             end
         end
-
         if targetPart then
             Camera.CFrame = CFrame.new(Camera.CFrame.Position, targetPart.Position)
         end
@@ -233,7 +221,7 @@ local function stopAimbot()
 end
 
 -- ================================
--- Aimbot (distance-based for /opfun) with optional target (unchanged)
+-- Aimbot (distance-based for /opfun)
 -- ================================
 local opAimbotEnabled = false
 local opAimbotTarget = nil
@@ -332,7 +320,7 @@ local function stopOpAimbot()
 end
 
 -- ================================
--- OpFun Attribute Loop + Restoration (unchanged)
+-- OpFun Attribute Loop + Restoration (fixed)
 -- ================================
 local opFunLoopConnection = nil
 local opFunActive = false
@@ -356,11 +344,9 @@ end
 local function applyOpFunAttributes()
     local char = LocalPlayer.Character
     if not char then return end
-
     if next(opFunOriginalAttrs) == nil then
         storeOriginalAttributes()
     end
-
     local specificAttrs = {
         DashLength = 250,
         DodgeBoost = 1000,
@@ -372,7 +358,6 @@ local function applyOpFunAttributes()
     for name, value in pairs(specificAttrs) do
         char:SetAttribute(name, value)
     end
-
     local allAttrs = char:GetAttributes()
     for name, _ in pairs(allAttrs) do
         if string.lower(name):find("cooldown") then
@@ -415,13 +400,211 @@ local function stopOpFunLoopAndRestore()
     notify("OpFun", "✅ Attributes restored to original values", 5)
 end
 
+-- Character respawn handling: reapply if active, or restore if we're stopping
 LocalPlayer.CharacterAdded:Connect(function()
     if opFunActive then
         task.wait(0.5)
-        opFunOriginalAttrs = {}
+        opFunOriginalAttrs = {} -- re-store fresh
         applyOpFunAttributes()
+    elseif next(opFunOriginalAttrs) ~= nil then
+        -- if we died while not active, but attributes might have been changed, restore
+        restoreOriginalAttributes()
     end
 end)
+
+-- ================================
+-- ACB (Auto Combo Buster) Loop
+-- ================================
+local acbRunning = false
+local acbLoopThread = nil
+local acbTarget = nil
+
+-- Helper: equip fruit by name
+local function equipFruit(name)
+    for fruit, remote in pairs(FruitMapping) do
+        if fruit:lower() == name:lower() then
+            pcall(function()
+                CommF_:InvokeServer("SwitchFruit", remote)
+            end)
+            return true
+        end
+    end
+    return false
+end
+
+-- Helper: equip fighting style
+local function equipFightingStyle(name)
+    local remote = FightingStyles[name]
+    if remote then
+        pcall(function()
+            CommF_:InvokeServer(remote)
+        end)
+        return true
+    end
+    return false
+end
+
+-- Helper: find the tool that has RemoteEvent for moves
+local function getMoveTool()
+    local char = LocalPlayer.Character
+    if not char then return nil end
+    -- Check tools in the character
+    for _, child in ipairs(char:GetChildren()) do
+        if child:IsA("Tool") and child:FindFirstChild("RemoteEvent") then
+            return child
+        end
+    end
+    -- also check Humanoid children (some tools are parented there)
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        for _, hchild in ipairs(humanoid:GetChildren()) do
+            if hchild:IsA("Tool") and hchild:FindFirstChild("RemoteEvent") then
+                return hchild
+            end
+        end
+    end
+    return nil
+end
+
+local function useMove(moveName)
+    local tool = getMoveTool()
+    if tool then
+        local remote = tool:FindFirstChild("RemoteEvent")
+        if remote and remote:IsA("RemoteEvent") then
+            remote:FireServer(moveName)
+            return true
+        end
+    end
+    -- Fallback: use the method from user: Humanoid:GetChildren()[11]:InvokeServer
+    local humanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        for _, child in ipairs(humanoid:GetChildren()) do
+            if child:IsA("Tool") and child:FindFirstChild("RemoteEvent") then
+                child:FindFirstChild("RemoteEvent"):FireServer(moveName)
+                return true
+            end
+        end
+    end
+    return false
+end
+
+-- Main ACB loop function
+local function startACB(targetIdentifier)
+    if acbRunning then
+        notify("ACB", "❌ Already running! Use /unacb to stop.", 5)
+        return
+    end
+
+    -- Resolve target
+    local resolved = resolveTarget(targetIdentifier)
+    if not resolved or resolved.type == "dummy" then
+        notify("ACB", "❌ Invalid target (player only)", 5)
+        return
+    end
+    acbTarget = resolved.object
+    if not acbTarget or not acbTarget.Character then
+        notify("ACB", "❌ Target not found", 5)
+        return
+    end
+
+    -- Enable aimbot on that target
+    startAimbot(targetIdentifier)
+    if not aimbotEnabled then
+        notify("ACB", "❌ Failed to lock aimbot", 5)
+        return
+    end
+
+    acbRunning = true
+    notify("ACB", "✅ Combo started on " .. acbTarget.Name, 5)
+
+    acbLoopThread = task.spawn(function()
+        local cycle = 0
+        while acbRunning do
+            -- Check if target is still alive
+            if not acbTarget or not acbTarget.Character or not acbTarget.Character:FindFirstChild("Humanoid") then
+                notify("ACB", "❌ Target lost (no character)", 5)
+                stopACB()
+                break
+            end
+            local humanoid = acbTarget.Character:FindFirstChildOfClass("Humanoid")
+            if not humanoid or humanoid.Health <= 0 then
+                notify("ACB", "✅ Target dead – stopping combo", 5)
+                stopACB()
+                break
+            end
+
+            -- Teleport to target
+            local hrp = acbTarget.Character and acbTarget.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local myChar = LocalPlayer.Character
+                if myChar and myChar.PrimaryPart then
+                    pcall(function()
+                        myChar:SetPrimaryPartCFrame(CFrame.new(hrp.Position + Vector3.new(0, 3, 0)))
+                    end)
+                end
+            else
+                task.wait(0.5)
+                continue
+            end
+
+            -- Ensure Ice is equipped
+            local currentFruit = LocalPlayer.Backpack:FindFirstChild("Ice-Ice") or LocalPlayer.Character:FindFirstChild("Ice-Ice")
+            if not currentFruit then
+                equipFruit("Ice")
+                task.wait(0.5)
+            end
+
+            -- Spam Ice moves (V, C, Z) in a loop for 3 cycles
+            for i = 1, 3 do
+                if not acbRunning then break end
+                useMove("V")
+                task.wait(0.2)
+                useMove("C")
+                task.wait(0.2)
+                useMove("Z")
+                task.wait(0.2)
+            end
+
+            -- Activate ability (as per user request)
+            pcall(function()
+                local args = { [1] = "ActivateAbility", n = 1 }
+                ReplicatedStorage.Remotes.CommE:FireServer(unpack(args, 1, args.n or #args))
+            end)
+
+            -- Equip Godhuman
+            local currentStyle = LocalPlayer.Backpack:FindFirstChild("Godhuman") or LocalPlayer.Character:FindFirstChild("Godhuman")
+            if not currentStyle then
+                equipFightingStyle("Godhuman")
+                task.wait(0.5)
+            end
+
+            -- Spam Godhuman moves (X, C, Z)
+            for i = 1, 3 do
+                if not acbRunning then break end
+                useMove("X")
+                task.wait(0.2)
+                useMove("C")
+                task.wait(0.2)
+                useMove("Z")
+                task.wait(0.2)
+            end
+
+            cycle = cycle + 1
+            task.wait(0.3)
+        end
+    end)
+end
+
+local function stopACB()
+    acbRunning = false
+    if acbLoopThread then
+        task.cancel(acbLoopThread)
+        acbLoopThread = nil
+    end
+    acbTarget = nil
+    stopAimbot()
+    notify("ACB", "✅ Combo stopped", 5)
+end
 
 -- ================================
 -- Commands
@@ -484,28 +667,23 @@ end
 
 local function handleAimbot(arg)
     if arg and arg ~= "" then
-        -- Check if arg is a number (radius)
         local radius = tonumber(arg)
         if radius and radius > 0 then
             startAimbot(radius)
         else
-            -- Treat as target identifier
             startAimbot(arg)
         end
     else
-        -- No argument: use default radius
         startAimbot(aimbotRadius)
     end
 end
 
 local function handleOpFun(arg)
-    -- Stop any existing aimbots
     stopAimbot()
     if opFunActive then
         stopOpFunLoopAndRestore()
         stopOpAimbot()
     end
-
     local searchString = arg and arg ~= "" and arg or nil
     startOpAimbot(searchString)
     if opAimbotEnabled then
@@ -524,6 +702,14 @@ local function handleUnOpFun()
     notify("OpFun", "✅ OpFun mode deactivated – attributes restored", 5)
 end
 
+local function handleACB(arg)
+    if not arg or arg == "" then
+        notify("ACB", "❌ Please specify a target", 5)
+        return
+    end
+    startACB(arg)
+end
+
 -- ================================
 -- Command Table
 -- ================================
@@ -539,6 +725,8 @@ local Commands = {
     ["/unaimbot"] = function() stopAimbot(); notify("Aimbot", "✅ Aimbot disabled", 5) end,
     ["/opfun"] = handleOpFun,
     ["/unopfun"] = handleUnOpFun,
+    ["/acb"] = handleACB,
+    ["/unacb"] = function() stopACB(); notify("ACB", "✅ ACB stopped", 5) end,
 }
 
 PlayerChatted:Connect(function(msg)
@@ -550,4 +738,4 @@ PlayerChatted:Connect(function(msg)
     end
 end)
 
-notify("✅ Loaded", "Commands: /i, /tt, /aimbot [radius|target], /unaimbot, /opfun [target], /unopfun, /sea1-3, /pirate, /marine", 5)
+notify("✅ Loaded", "Commands: /i, /tt, /aimbot [radius|target], /unaimbot, /opfun [target], /unopfun, /acb <target>, /unacb, /sea1-3, /pirate, /marine", 5)
