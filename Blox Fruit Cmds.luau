@@ -6,6 +6,7 @@ local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 
 local CommF_ = ReplicatedStorage.Remotes.CommF_
+local CommE_ = ReplicatedStorage.Remotes.CommE
 local LocalPlayer = Players.LocalPlayer
 local PlayerChatted = LocalPlayer.Chatted
 local Camera = workspace.CurrentCamera
@@ -39,11 +40,10 @@ local FruitMapping = {
 }
 
 -- ================================
--- Fighting Styles (for /acb)
+-- Fighting Styles
 -- ================================
 local FightingStyles = {
     ["Godhuman"] = "BuyGodhuman",
-    -- add more if needed
 }
 
 -- ================================
@@ -320,7 +320,7 @@ local function stopOpAimbot()
 end
 
 -- ================================
--- OpFun Attribute Loop + Restoration (fixed)
+-- OpFun Attribute Loop + Restoration
 -- ================================
 local opFunLoopConnection = nil
 local opFunActive = false
@@ -400,26 +400,24 @@ local function stopOpFunLoopAndRestore()
     notify("OpFun", "✅ Attributes restored to original values", 5)
 end
 
--- Character respawn handling: reapply if active, or restore if we're stopping
 LocalPlayer.CharacterAdded:Connect(function()
     if opFunActive then
         task.wait(0.5)
-        opFunOriginalAttrs = {} -- re-store fresh
+        opFunOriginalAttrs = {}
         applyOpFunAttributes()
     elseif next(opFunOriginalAttrs) ~= nil then
-        -- if we died while not active, but attributes might have been changed, restore
         restoreOriginalAttributes()
     end
 end)
 
 -- ================================
--- ACB (Auto Combo Buster) Loop
+-- ACB (Auto Combo Buster) - Fixed
 -- ================================
 local acbRunning = false
 local acbLoopThread = nil
 local acbTarget = nil
 
--- Helper: equip fruit by name
+-- Helper: equip fruit using the correct method
 local function equipFruit(name)
     for fruit, remote in pairs(FruitMapping) do
         if fruit:lower() == name:lower() then
@@ -444,51 +442,63 @@ local function equipFightingStyle(name)
     return false
 end
 
--- Helper: find the tool that has RemoteEvent for moves
-local function getMoveTool()
-    local char = LocalPlayer.Character
-    if not char then return nil end
-    -- Check tools in the character
-    for _, child in ipairs(char:GetChildren()) do
-        if child:IsA("Tool") and child:FindFirstChild("RemoteEvent") then
-            return child
-        end
-    end
-    -- also check Humanoid children (some tools are parented there)
-    local humanoid = char:FindFirstChildOfClass("Humanoid")
-    if humanoid then
-        for _, hchild in ipairs(humanoid:GetChildren()) do
-            if hchild:IsA("Tool") and hchild:FindFirstChild("RemoteEvent") then
-                return hchild
-            end
-        end
-    end
-    return nil
-end
-
+-- Helper: use a move (using the method from your original code)
 local function useMove(moveName)
-    local tool = getMoveTool()
-    if tool then
-        local remote = tool:FindFirstChild("RemoteEvent")
-        if remote and remote:IsA("RemoteEvent") then
-            remote:FireServer(moveName)
-            return true
-        end
-    end
-    -- Fallback: use the method from user: Humanoid:GetChildren()[11]:InvokeServer
-    local humanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-    if humanoid then
-        for _, child in ipairs(humanoid:GetChildren()) do
-            if child:IsA("Tool") and child:FindFirstChild("RemoteEvent") then
-                child:FindFirstChild("RemoteEvent"):FireServer(moveName)
-                return true
+    local args = { [1] = moveName, n = 1 }
+    pcall(function()
+        local humanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            -- Find the first tool in Humanoid that has InvokeServer capability
+            for _, child in ipairs(humanoid:GetChildren()) do
+                if child:IsA("Tool") and child:FindFirstChild("RemoteEvent") then
+                    child:FindFirstChild("RemoteEvent"):FireServer(moveName)
+                    return
+                end
             end
         end
-    end
-    return false
+        -- Fallback: use the method from your original code
+        local char = LocalPlayer.Character
+        if char then
+            local humanoid = char:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                local children = humanoid:GetChildren()
+                if children[11] then
+                    children[11]:InvokeServer(unpack(args, 1, args.n or #args))
+                end
+            end
+        end
+    end)
 end
 
--- Main ACB loop function
+-- Helper: activate ability
+local function activateAbility()
+    pcall(function()
+        local args = { [1] = "ActivateAbility", n = 1 }
+        CommE_:FireServer(unpack(args, 1, args.n or #args))
+    end)
+end
+
+-- Helper: teleport to target
+local function teleportToTarget()
+    if not acbTarget or not acbTarget.Character then return end
+    local hrp = acbTarget.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    local myChar = LocalPlayer.Character
+    if not myChar or not myChar.PrimaryPart then return end
+    pcall(function()
+        myChar:SetPrimaryPartCFrame(CFrame.new(hrp.Position + Vector3.new(0, 3, 0)))
+    end)
+end
+
+-- Helper: check if target is alive
+local function isTargetAlive()
+    if not acbTarget or not acbTarget.Character then return false end
+    local humanoid = acbTarget.Character:FindFirstChildOfClass("Humanoid")
+    if not humanoid or humanoid.Health <= 0 then return false end
+    return true
+end
+
+-- Main ACB function
 local function startACB(targetIdentifier)
     if acbRunning then
         notify("ACB", "❌ Already running! Use /unacb to stop.", 5)
@@ -502,8 +512,9 @@ local function startACB(targetIdentifier)
         return
     end
     acbTarget = resolved.object
-    if not acbTarget or not acbTarget.Character then
-        notify("ACB", "❌ Target not found", 5)
+    
+    if not isTargetAlive() then
+        notify("ACB", "❌ Target not found or dead", 5)
         return
     end
 
@@ -518,78 +529,78 @@ local function startACB(targetIdentifier)
     notify("ACB", "✅ Combo started on " .. acbTarget.Name, 5)
 
     acbLoopThread = task.spawn(function()
-        local cycle = 0
         while acbRunning do
-            -- Check if target is still alive
-            if not acbTarget or not acbTarget.Character or not acbTarget.Character:FindFirstChild("Humanoid") then
-                notify("ACB", "❌ Target lost (no character)", 5)
-                stopACB()
-                break
-            end
-            local humanoid = acbTarget.Character:FindFirstChildOfClass("Humanoid")
-            if not humanoid or humanoid.Health <= 0 then
+            -- Check if target is alive
+            if not isTargetAlive() then
                 notify("ACB", "✅ Target dead – stopping combo", 5)
                 stopACB()
                 break
             end
 
             -- Teleport to target
-            local hrp = acbTarget.Character and acbTarget.Character:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                local myChar = LocalPlayer.Character
-                if myChar and myChar.PrimaryPart then
-                    pcall(function()
-                        myChar:SetPrimaryPartCFrame(CFrame.new(hrp.Position + Vector3.new(0, 3, 0)))
-                    end)
-                end
-            else
-                task.wait(0.5)
-                continue
-            end
+            teleportToTarget()
 
             -- Ensure Ice is equipped
-            local currentFruit = LocalPlayer.Backpack:FindFirstChild("Ice-Ice") or LocalPlayer.Character:FindFirstChild("Ice-Ice")
-            if not currentFruit then
+            local hasIce = LocalPlayer.Backpack:FindFirstChild("Ice-Ice") or LocalPlayer.Character:FindFirstChild("Ice-Ice")
+            if not hasIce then
                 equipFruit("Ice")
                 task.wait(0.5)
             end
 
-            -- Spam Ice moves (V, C, Z) in a loop for 3 cycles
+            -- Spam Ice V (3 times)
             for i = 1, 3 do
                 if not acbRunning then break end
                 useMove("V")
                 task.wait(0.2)
+            end
+
+            -- Spam Ice C (3 times)
+            for i = 1, 3 do
+                if not acbRunning then break end
                 useMove("C")
                 task.wait(0.2)
+            end
+
+            -- Spam Ice Z (3 times)
+            for i = 1, 3 do
+                if not acbRunning then break end
                 useMove("Z")
                 task.wait(0.2)
             end
 
-            -- Activate ability (as per user request)
-            pcall(function()
-                local args = { [1] = "ActivateAbility", n = 1 }
-                ReplicatedStorage.Remotes.CommE:FireServer(unpack(args, 1, args.n or #args))
-            end)
+            -- Activate ability
+            activateAbility()
+            task.wait(0.3)
 
             -- Equip Godhuman
-            local currentStyle = LocalPlayer.Backpack:FindFirstChild("Godhuman") or LocalPlayer.Character:FindFirstChild("Godhuman")
-            if not currentStyle then
+            local hasGodhuman = LocalPlayer.Backpack:FindFirstChild("Godhuman") or LocalPlayer.Character:FindFirstChild("Godhuman")
+            if not hasGodhuman then
                 equipFightingStyle("Godhuman")
                 task.wait(0.5)
             end
 
-            -- Spam Godhuman moves (X, C, Z)
+            -- Spam Godhuman X (3 times)
             for i = 1, 3 do
                 if not acbRunning then break end
                 useMove("X")
                 task.wait(0.2)
+            end
+
+            -- Spam Godhuman C (3 times)
+            for i = 1, 3 do
+                if not acbRunning then break end
                 useMove("C")
                 task.wait(0.2)
+            end
+
+            -- Spam Godhuman Z (3 times)
+            for i = 1, 3 do
+                if not acbRunning then break end
                 useMove("Z")
                 task.wait(0.2)
             end
 
-            cycle = cycle + 1
+            -- Small delay before repeating
             task.wait(0.3)
         end
     end)
@@ -606,7 +617,7 @@ local function stopACB()
     notify("ACB", "✅ Combo stopped", 5)
 end
 
--- ================================
+================================
 -- Commands
 -- ================================
 
