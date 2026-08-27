@@ -56,6 +56,90 @@ local Shortcuts = {
 local TravelCommands = {["1"]="TravelMain",["2"]="TravelDressrosa",["3"]="TravelZou"}
 
 -- ================================
+-- WalkSpeed + JumpPower Loop (PERMANENT)
+-- ================================
+local speedJumpLoopConnection = nil
+local speedJumpActive = true
+local originalWalkSpeed = 16
+local originalJumpPower = 50
+
+-- Store original values when script starts
+local function storeOriginalSpeedJump()
+    local char = LocalPlayer.Character
+    if char then
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            originalWalkSpeed = humanoid.WalkSpeed
+            originalJumpPower = humanoid.JumpPower
+        end
+    end
+end
+
+-- Apply WalkSpeed and JumpPower = 100
+local function applySpeedJump()
+    local char = LocalPlayer.Character
+    if not char then return end
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        if humanoid.WalkSpeed ~= 100 then
+            humanoid.WalkSpeed = 100
+        end
+        if humanoid.JumpPower ~= 100 then
+            humanoid.JumpPower = 100
+        end
+    end
+end
+
+-- Restore original WalkSpeed and JumpPower
+local function restoreSpeedJump()
+    local char = LocalPlayer.Character
+    if not char then return end
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        humanoid.WalkSpeed = originalWalkSpeed
+        humanoid.JumpPower = originalJumpPower
+    end
+end
+
+-- Start the permanent speed/jump loop
+local function startSpeedJumpLoop()
+    if speedJumpLoopConnection then
+        speedJumpLoopConnection:Disconnect()
+        speedJumpLoopConnection = nil
+    end
+    speedJumpActive = true
+    storeOriginalSpeedJump()
+    applySpeedJump()
+    speedJumpLoopConnection = RunService.Heartbeat:Connect(function()
+        if speedJumpActive then
+            applySpeedJump()
+        end
+    end)
+end
+
+-- Stop the speed/jump loop (for when OpFun disables)
+local function stopSpeedJumpLoop()
+    speedJumpActive = false
+    if speedJumpLoopConnection then
+        speedJumpLoopConnection:Disconnect()
+        speedJumpLoopConnection = nil
+    end
+    restoreSpeedJump()
+end
+
+-- Character respawn handler for speed/jump
+LocalPlayer.CharacterAdded:Connect(function(char)
+    task.wait(0.5)
+    if speedJumpActive then
+        storeOriginalSpeedJump()
+        applySpeedJump()
+    end
+end)
+
+-- Start speed/jump loop immediately
+startSpeedJumpLoop()
+
+-- ================================
 -- Aimbot (standard screen-based with optional specific target)
 -- ================================
 local aimbotEnabled = false
@@ -315,7 +399,7 @@ local function stopOpAimbot()
 end
 
 -- ================================
--- OpFun Attribute Loop + Restoration (FIXED)
+-- OpFun Attribute Loop + Restoration
 -- ================================
 local opFunLoopConnection = nil
 local opFunActive = false
@@ -326,9 +410,7 @@ local function storeOriginalAttributes()
     local char = LocalPlayer.Character
     if not char then return end
     
-    -- Store which character we're saving attributes from
     opFunCurrentChar = char
-    
     opFunOriginalAttrs = {}
     local allAttrs = char:GetAttributes()
     for name, value in pairs(allAttrs) do
@@ -339,15 +421,12 @@ local function storeOriginalAttributes()
             opFunOriginalAttrs[name] = value
         end
     end
-    -- Also store cooldowns that might not exist yet but will be created
-    -- Just to be safe
 end
 
 local function applyOpFunAttributes()
     local char = LocalPlayer.Character
     if not char then return end
 
-    -- If we don't have stored attributes or character changed, store fresh
     if next(opFunOriginalAttrs) == nil or opFunCurrentChar ~= char then
         storeOriginalAttributes()
     end
@@ -375,12 +454,10 @@ end
 local function restoreOriginalAttributes()
     local char = LocalPlayer.Character
     if not char then 
-        -- If no character, clear stored attrs so we'll re-store next time
         opFunOriginalAttrs = {}
         return 
     end
     
-    -- If we have stored attributes, restore them
     if next(opFunOriginalAttrs) ~= nil then
         for name, value in pairs(opFunOriginalAttrs) do
             pcall(function()
@@ -388,9 +465,7 @@ local function restoreOriginalAttributes()
             end)
         end
     else
-        -- If no stored attributes, try to reset to defaults
         notify("OpFun", "⚠️ No stored attributes to restore, resetting to defaults", 5)
-        -- Reset cooldowns to 0 and specific attrs to defaults
         local specificAttrs = {
             DashLength = 16,
             DodgeBoost = 0,
@@ -404,7 +479,6 @@ local function restoreOriginalAttributes()
                 char:SetAttribute(name, value)
             end)
         end
-        -- Reset all cooldowns to 0
         local allAttrs = char:GetAttributes()
         for name, _ in pairs(allAttrs) do
             if string.lower(name):find("cooldown") then
@@ -442,14 +516,11 @@ local function stopOpFunLoopAndRestore()
         opFunLoopConnection = nil
     end
     
-    -- Restore with a small delay to ensure character is loaded
     task.wait(0.1)
     restoreOriginalAttributes()
     
-    -- Double-check restore after another short delay
     task.wait(0.2)
     if next(opFunOriginalAttrs) ~= nil then
-        -- If attributes are still stored, they weren't restored properly
         restoreOriginalAttributes()
     end
     
@@ -458,14 +529,12 @@ end
 
 -- Character respawn handler
 LocalPlayer.CharacterAdded:Connect(function(char)
+    task.wait(0.5)
     if opFunActive then
-        task.wait(0.5) -- wait for humanoid to load
-        -- Store fresh attributes from the new character
         opFunOriginalAttrs = {}
         opFunCurrentChar = nil
         applyOpFunAttributes()
     else
-        -- If opfun is not active but we have stored attributes, clear them
         opFunOriginalAttrs = {}
         opFunCurrentChar = nil
     end
@@ -544,7 +613,6 @@ local function handleAimbot(arg)
 end
 
 local function handleOpFun(arg)
-    -- Stop any existing aimbots
     stopAimbot()
     if opFunActive then
         stopOpFunLoopAndRestore()
@@ -566,6 +634,8 @@ end
 local function handleUnOpFun()
     stopOpAimbot()
     stopOpFunLoopAndRestore()
+    -- Restore speed/jump to 100 (they're already at 100 from the loop, but just in case)
+    applySpeedJump()
     notify("OpFun", "✅ OpFun mode deactivated – attributes restored", 5)
 end
 
