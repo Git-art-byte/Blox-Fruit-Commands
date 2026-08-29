@@ -4,6 +4,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterGui = game:GetService("StarterGui")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 
 local CommF_ = ReplicatedStorage.Remotes.CommF_
 local LocalPlayer = Players.LocalPlayer
@@ -51,16 +52,46 @@ local Shortcuts = {
 }
 
 -- ================================
+-- Fighting Style Shortcuts for /f
+-- ================================
+local FightingStyleShortcuts = {
+    ["elec"] = "ElectricClaw",
+    ["gh"] = "GodHuman",
+    ["dt"] = "DragonTalon",
+}
+
+-- ================================
+-- Fighting Style Data
+-- ================================
+local FightingStyles = {
+    ElectricClaw = {
+        coords = Vector3.new(-10369, 332, -10128),
+        remote = "BuyElectricClaw",
+        name = "Electric Claw"
+    },
+    GodHuman = {
+        coords = Vector3.new(-13777, 335, -9881),
+        remote = "BuyGodhuman",
+        name = "GodHuman"
+    },
+    DragonTalon = {
+        coords = Vector3.new(5666, 1211, 865),
+        remote = "BuyDragonTalon",
+        name = "Dragon Talon"
+    }
+}
+
+-- ================================
 -- Travel
 -- ================================
 local TravelCommands = {["1"]="TravelMain",["2"]="TravelDressrosa",["3"]="TravelZou"}
 
 -- ================================
--- WalkSpeed + JumpPower Loop (PERMANENT)
+-- WalkSpeed + JumpPower Loop (via SpeedMultiplier)
 -- ================================
 local speedJumpLoopConnection = nil
 local speedJumpActive = true
-local originalWalkSpeed = 16
+local originalSpeedMultiplier = 1
 local originalJumpPower = 50
 
 -- Store original values when script starts
@@ -69,36 +100,42 @@ local function storeOriginalSpeedJump()
     if char then
         local humanoid = char:FindFirstChildOfClass("Humanoid")
         if humanoid then
-            originalWalkSpeed = humanoid.WalkSpeed
             originalJumpPower = humanoid.JumpPower
+        end
+        -- Store original SpeedMultiplier
+        local speedMult = char:GetAttribute("SpeedMultiplier")
+        if speedMult then
+            originalSpeedMultiplier = speedMult
         end
     end
 end
 
--- Apply WalkSpeed and JumpPower = 100
+-- Apply SpeedMultiplier = 7 and JumpPower = 100
 local function applySpeedJump()
     local char = LocalPlayer.Character
     if not char then return end
     local humanoid = char:FindFirstChildOfClass("Humanoid")
     if humanoid then
-        if humanoid.WalkSpeed ~= 100 then
-            humanoid.WalkSpeed = 100
-        end
         if humanoid.JumpPower ~= 100 then
             humanoid.JumpPower = 100
         end
     end
+    -- Set SpeedMultiplier attribute to 7
+    local currentSpeedMult = char:GetAttribute("SpeedMultiplier")
+    if currentSpeedMult ~= 7 then
+        char:SetAttribute("SpeedMultiplier", 7)
+    end
 end
 
--- Restore original WalkSpeed and JumpPower
+-- Restore original SpeedMultiplier and JumpPower
 local function restoreSpeedJump()
     local char = LocalPlayer.Character
     if not char then return end
     local humanoid = char:FindFirstChildOfClass("Humanoid")
     if humanoid then
-        humanoid.WalkSpeed = originalWalkSpeed
         humanoid.JumpPower = originalJumpPower
     end
+    char:SetAttribute("SpeedMultiplier", originalSpeedMultiplier)
 end
 
 -- Start the permanent speed/jump loop
@@ -541,6 +578,73 @@ LocalPlayer.CharacterAdded:Connect(function(char)
 end)
 
 -- ================================
+-- Fighting Style Teleport + Buy
+-- ================================
+local currentTween = nil
+local tweenConnection = nil
+
+local function teleportAndBuyStyle(styleName)
+    local styleData = FightingStyles[styleName]
+    if not styleData then
+        notify("Fighting Style", "❌ Unknown style: " .. styleName, 5)
+        return
+    end
+
+    local char = LocalPlayer.Character
+    if not char then
+        notify("Fighting Style", "❌ No character", 5)
+        return
+    end
+
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then
+        notify("Fighting Style", "❌ No HumanoidRootPart", 5)
+        return
+    end
+
+    -- Stop any existing tween
+    if currentTween then
+        currentTween:Cancel()
+        currentTween = nil
+    end
+    if tweenConnection then
+        tweenConnection:Disconnect()
+        tweenConnection = nil
+    end
+
+    local targetPos = styleData.coords
+    local distance = (hrp.Position - targetPos).Magnitude
+    local duration = math.min(distance / 300, 5) -- Speed-based duration, max 5 seconds
+
+    notify("Fighting Style", "⏳ Teleporting to " .. styleData.name .. "...", 5)
+
+    local tweenInfo = TweenInfo.new(
+        duration,
+        Enum.EasingStyle.Linear,
+        Enum.EasingDirection.Out
+    )
+
+    currentTween = TweenService:Create(hrp, tweenInfo, {CFrame = CFrame.new(targetPos)})
+    
+        -- Connect to completion
+    tweenConnection = currentTween.Completed:Connect(function()
+        tweenConnection = nil
+        currentTween = nil
+        -- Buy the style
+        local success, result = pcall(function()
+            return CommF_:InvokeServer(styleData.remote)
+        end)
+        if success then
+            notify("Fighting Style", "✅ Purchased " .. styleData.name, 5)
+        else
+            notify("Fighting Style", "❌ Failed to buy: " .. tostring(result), 5)
+        end
+    end)
+
+    currentTween:Play()
+end
+
+-- ================================
 -- Commands
 -- ================================
 
@@ -634,9 +738,37 @@ end
 local function handleUnOpFun()
     stopOpAimbot()
     stopOpFunLoopAndRestore()
-    -- Restore speed/jump to 100 (they're already at 100 from the loop, but just in case)
-    applySpeedJump()
+    applySpeedJump() -- Keep speed at 100
     notify("OpFun", "✅ OpFun mode deactivated – attributes restored", 5)
+end
+
+local function handleFightingStyle(arg)
+    if not arg or arg == "" then
+        notify("Fighting Style", "❌ Please specify a style: ElectricClaw, GodHuman, DragonTalon", 5)
+        return
+    end
+
+    -- Check shortcuts
+    local shortcutName = FightingStyleShortcuts[arg:lower()]
+    if shortcutName then
+        arg = shortcutName
+    end
+
+    -- Match style (case-insensitive)
+    local matchedStyle = nil
+    for styleName, _ in pairs(FightingStyles) do
+        if styleName:lower():find(arg:lower()) then
+            matchedStyle = styleName
+            break
+        end
+    end
+
+    if matchedStyle then
+        teleportAndBuyStyle(matchedStyle)
+    else
+        notify("Fighting Style", "❌ No style found for: " .. arg, 5)
+        notify("Fighting Style", "Available: ElectricClaw, GodHuman, DragonTalon", 5)
+    end
 end
 
 -- ================================
@@ -645,6 +777,7 @@ end
 local Commands = {
     ["/i"] = handleItem,
     ["/tt"] = equipTitle,
+    ["/f"] = handleFightingStyle,
     ["/sea1"] = function() travelToSea("1") end,
     ["/sea2"] = function() travelToSea("2") end,
     ["/sea3"] = function() travelToSea("3") end,
@@ -665,4 +798,4 @@ PlayerChatted:Connect(function(msg)
     end
 end)
 
-notify("✅ Loaded", "Commands: /i, /tt, /aimbot [radius|target], /unaimbot, /opfun [target], /unopfun, /sea1-3, /pirate, /marine", 5)
+notify("✅ Loaded", "Commands: /i, /tt, /f [style], /aimbot [radius|target], /unaimbot, /opfun [target], /unopfun, /sea1-3, /pirate, /marine", 5)
