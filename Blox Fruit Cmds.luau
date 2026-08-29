@@ -181,6 +181,19 @@ local function requestEntrance(coords)
 end
 
 -- ================================
+-- Noclip function
+-- ================================
+local function setNoclip(state)
+    local char = LocalPlayer.Character
+    if not char then return end
+    for _, part in ipairs(char:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.CanCollide = not state
+        end
+    end
+end
+
+-- ================================
 -- Aimbot (standard screen-based with optional specific target)
 -- ================================
 local aimbotEnabled = false
@@ -581,7 +594,7 @@ LocalPlayer.CharacterAdded:Connect(function(char)
 end)
 
 -- ================================
--- Fighting Style Teleport + Buy
+-- Fighting Style Teleport + Buy (with noclip and SLOW tween)
 -- ================================
 local currentTween = nil
 local tweenConnection = nil
@@ -615,6 +628,9 @@ local function teleportAndBuyStyle(styleName)
         tweenConnection = nil
     end
 
+    -- Enable noclip
+    setNoclip(true)
+
     -- If entranceCoords exists, request entrance
     if styleData.entranceCoords then
         requestEntrance(styleData.entranceCoords)
@@ -623,9 +639,10 @@ local function teleportAndBuyStyle(styleName)
 
     local targetPos = styleData.coords
     local distance = (hrp.Position - targetPos).Magnitude
-    -- Moderate speed: at least 2 seconds, max 5 seconds, speed ~80 studs/sec
-    local duration = math.max(distance / 80, 2)
-    duration = math.min(duration, 8) -- cap at 8 seconds for safety
+    -- SLOWER speed: 30 studs/sec, min 5 sec, max 15 sec
+    local speed = 30
+    local duration = math.max(distance / speed, 5)
+    duration = math.min(duration, 15)
 
     notify("Fighting Style", "⏳ Teleporting to " .. styleData.name .. "...", 5)
 
@@ -640,6 +657,8 @@ local function teleportAndBuyStyle(styleName)
     tweenConnection = currentTween.Completed:Connect(function()
         tweenConnection = nil
         currentTween = nil
+        -- Disable noclip
+        setNoclip(false)
         -- Buy the style
         local success, result = pcall(function()
             return CommF_:InvokeServer(styleData.remote)
@@ -651,7 +670,20 @@ local function teleportAndBuyStyle(styleName)
         end
     end)
 
-    currentTween:Play()
+    -- Safety net: if the tween fails or is cancelled, disable noclip
+    local errorConnection
+    errorConnection = currentTween:GetPropertyChangedSignal("PlaybackState"):Connect(function()
+        if currentTween and currentTween.PlaybackState == Enum.PlaybackState.Cancelled then
+            setNoclip(false)
+            if tweenConnection then tweenConnection:Disconnect(); tweenConnection = nil end
+            if errorConnection then errorConnection:Disconnect(); errorConnection = nil end
+        end
+    end)
+
+    -- Also handle pcall errors
+    pcall(function()
+        currentTween:Play()
+    end)
 end
 
 -- ================================
