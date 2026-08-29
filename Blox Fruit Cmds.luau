@@ -72,12 +72,14 @@ local FightingStyles = {
     GodHuman = {
         coords = Vector3.new(-13777, 335, -9881),
         remote = "BuyGodhuman",
-        name = "GodHuman"
+        name = "GodHuman",
+        entranceCoords = Vector3.new(-5060.41162109375, 318.50201416015625, -3193.224853515625)
     },
     DragonTalon = {
         coords = Vector3.new(5666, 1211, 865),
         remote = "BuyDragonTalon",
-        name = "Dragon Talon"
+        name = "Dragon Talon",
+        entranceCoords = Vector3.new(-5027.0302734375, 318.50201416015625, -3206.70361328125)
     }
 }
 
@@ -94,7 +96,6 @@ local speedJumpActive = true
 local originalSpeedMultiplier = 1
 local originalJumpPower = 50
 
--- Store original values when script starts
 local function storeOriginalSpeedJump()
     local char = LocalPlayer.Character
     if char then
@@ -102,7 +103,6 @@ local function storeOriginalSpeedJump()
         if humanoid then
             originalJumpPower = humanoid.JumpPower
         end
-        -- Store original SpeedMultiplier
         local speedMult = char:GetAttribute("SpeedMultiplier")
         if speedMult then
             originalSpeedMultiplier = speedMult
@@ -110,7 +110,6 @@ local function storeOriginalSpeedJump()
     end
 end
 
--- Apply SpeedMultiplier = 7 and JumpPower = 100
 local function applySpeedJump()
     local char = LocalPlayer.Character
     if not char then return end
@@ -120,14 +119,12 @@ local function applySpeedJump()
             humanoid.JumpPower = 100
         end
     end
-    -- Set SpeedMultiplier attribute to 7
     local currentSpeedMult = char:GetAttribute("SpeedMultiplier")
     if currentSpeedMult ~= 7 then
         char:SetAttribute("SpeedMultiplier", 7)
     end
 end
 
--- Restore original SpeedMultiplier and JumpPower
 local function restoreSpeedJump()
     local char = LocalPlayer.Character
     if not char then return end
@@ -138,7 +135,6 @@ local function restoreSpeedJump()
     char:SetAttribute("SpeedMultiplier", originalSpeedMultiplier)
 end
 
--- Start the permanent speed/jump loop
 local function startSpeedJumpLoop()
     if speedJumpLoopConnection then
         speedJumpLoopConnection:Disconnect()
@@ -154,7 +150,6 @@ local function startSpeedJumpLoop()
     end)
 end
 
--- Stop the speed/jump loop (for when OpFun disables)
 local function stopSpeedJumpLoop()
     speedJumpActive = false
     if speedJumpLoopConnection then
@@ -164,7 +159,6 @@ local function stopSpeedJumpLoop()
     restoreSpeedJump()
 end
 
--- Character respawn handler for speed/jump
 LocalPlayer.CharacterAdded:Connect(function(char)
     task.wait(0.5)
     if speedJumpActive then
@@ -173,8 +167,18 @@ LocalPlayer.CharacterAdded:Connect(function(char)
     end
 end)
 
--- Start speed/jump loop immediately
 startSpeedJumpLoop()
+
+-- ================================
+-- Request Entrance function
+-- ================================
+local function requestEntrance(coords)
+    if not coords then return end
+    local args = { [1] = "requestEntrance", [2] = coords, n = 2 }
+    pcall(function()
+        CommF_:InvokeServer(unpack(args, 1, args.n or #args))
+    end)
+end
 
 -- ================================
 -- Aimbot (standard screen-based with optional specific target)
@@ -564,7 +568,6 @@ local function stopOpFunLoopAndRestore()
     notify("OpFun", "✅ Attributes restored to original values", 5)
 end
 
--- Character respawn handler
 LocalPlayer.CharacterAdded:Connect(function(char)
     task.wait(0.5)
     if opFunActive then
@@ -612,9 +615,17 @@ local function teleportAndBuyStyle(styleName)
         tweenConnection = nil
     end
 
+    -- If entranceCoords exists, request entrance
+    if styleData.entranceCoords then
+        requestEntrance(styleData.entranceCoords)
+        task.wait(0.5) -- give it time to process
+    end
+
     local targetPos = styleData.coords
     local distance = (hrp.Position - targetPos).Magnitude
-    local duration = math.min(distance / 300, 5) -- Speed-based duration, max 5 seconds
+    -- Moderate speed: at least 2 seconds, max 5 seconds, speed ~80 studs/sec
+    local duration = math.max(distance / 80, 2)
+    duration = math.min(duration, 8) -- cap at 8 seconds for safety
 
     notify("Fighting Style", "⏳ Teleporting to " .. styleData.name .. "...", 5)
 
@@ -626,7 +637,6 @@ local function teleportAndBuyStyle(styleName)
 
     currentTween = TweenService:Create(hrp, tweenInfo, {CFrame = CFrame.new(targetPos)})
     
-        -- Connect to completion
     tweenConnection = currentTween.Completed:Connect(function()
         tweenConnection = nil
         currentTween = nil
@@ -738,7 +748,7 @@ end
 local function handleUnOpFun()
     stopOpAimbot()
     stopOpFunLoopAndRestore()
-    applySpeedJump() -- Keep speed at 100
+    applySpeedJump()
     notify("OpFun", "✅ OpFun mode deactivated – attributes restored", 5)
 end
 
@@ -748,13 +758,11 @@ local function handleFightingStyle(arg)
         return
     end
 
-    -- Check shortcuts
     local shortcutName = FightingStyleShortcuts[arg:lower()]
     if shortcutName then
         arg = shortcutName
     end
 
-    -- Match style (case-insensitive)
     local matchedStyle = nil
     for styleName, _ in pairs(FightingStyles) do
         if styleName:lower():find(arg:lower()) then
@@ -771,6 +779,25 @@ local function handleFightingStyle(arg)
     end
 end
 
+-- New commands for requestEntrance
+local function handleCrofts()
+    local coords = Vector3.new(5650.94775390625, 1017.2747802734375, -350.3791809082031)
+    requestEntrance(coords)
+    notify("Entrance", "✅ Requested Crofts entrance", 5)
+end
+
+local function handleHydra()
+    local coords = Vector3.new(-5027.0302734375, 318.50201416015625, -3206.70361328125)
+    requestEntrance(coords)
+    notify("Entrance", "✅ Requested Hydra entrance", 5)
+end
+
+local function handleMansion()
+    local coords = Vector3.new(-5060.41162109375, 318.50201416015625, -3193.224853515625)
+    requestEntrance(coords)
+    notify("Entrance", "✅ Requested Mansion entrance", 5)
+end
+
 -- ================================
 -- Command Table
 -- ================================
@@ -778,6 +805,9 @@ local Commands = {
     ["/i"] = handleItem,
     ["/tt"] = equipTitle,
     ["/f"] = handleFightingStyle,
+    ["/crofts"] = handleCrofts,
+    ["/hydra"] = handleHydra,
+    ["/mansion"] = handleMansion,
     ["/sea1"] = function() travelToSea("1") end,
     ["/sea2"] = function() travelToSea("2") end,
     ["/sea3"] = function() travelToSea("3") end,
@@ -798,4 +828,4 @@ PlayerChatted:Connect(function(msg)
     end
 end)
 
-notify("✅ Loaded", "Commands: /i, /tt, /f [style], /aimbot [radius|target], /unaimbot, /opfun [target], /unopfun, /sea1-3, /pirate, /marine", 5)
+notify("✅ Loaded", "Commands: /i, /tt, /f [style], /crofts, /hydra, /mansion, /aimbot [radius|target], /unaimbot, /opfun [target], /unopfun, /sea1-3, /pirate, /marine", 5)
