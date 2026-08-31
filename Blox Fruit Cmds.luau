@@ -121,7 +121,7 @@ local function applySpeedJump()
     end
     local currentSpeedMult = char:GetAttribute("SpeedMultiplier")
     if currentSpeedMult ~= 7 then
-        char:SetAttribute("SpeedMultiplier", 7)
+        char:SetAttribute("SpeedMultiplier", 3)
     end
 end
 
